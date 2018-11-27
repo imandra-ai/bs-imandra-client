@@ -10,7 +10,7 @@ var Child_process = require("child_process");
 
 function waitForPrompt($$process, promptLine) {
   return new Promise((function (resolve, param) {
-                  var np = $$process[/* nodeProcess */0];
+                  var np = $$process.nodeProcess;
                   var so = Js_null.getExn(np.stdout);
                   var handleStdout = function (b) {
                     var s = b.toString();
@@ -29,7 +29,8 @@ function waitForPrompt($$process, promptLine) {
               }));
 }
 
-function printStreamsDebug(np) {
+function printStreamsDebug(p) {
+  var np = p.nodeProcess;
   var so = Js_null.getExn(np.stdout);
   var se = Js_null.getExn(np.stderr);
   so.on("data", (function (b) {
@@ -79,14 +80,16 @@ function start(opts) {
                         /* [] */0
                       ]
                     ]);
-                var ip = /* record */[/* nodeProcess */np];
+                var ip = {
+                  nodeProcess: np
+                };
                 np.on("close", handleCloseDuringStart);
                 if (opts.debug) {
-                  printStreamsDebug(np);
+                  printStreamsDebug(ip);
                 }
                 waitForPrompt(ip, "# ").then((function (param) {
                         np.off("close", handleCloseDuringStart);
-                        resolve(/* record */[/* nodeProcess */np]);
+                        resolve(ip);
                         return Promise.resolve(/* () */0);
                       }));
                 return /* () */0;

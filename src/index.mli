@@ -1,11 +1,13 @@
 type imandraSyntax = Reason | OCaml
 
 type imandraOptions =
-  < syntax : imandraSyntax
+  { syntax : imandraSyntax
   ; debug : bool
-  > Js.t
+  } [@@bs.deriving abstract]
 
-type imandraProcess
+type imandraProcess =
+  { nodeProcess : Node.Child_process.spawnResult
+  } [@@bs.deriving abstract]
 
 val waitForPrompt : imandraProcess -> string -> unit Js.Promise.t
 

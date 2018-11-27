@@ -23,17 +23,17 @@ external bufferOff
 type imandraSyntax = Reason | OCaml
 
 type imandraOptions =
-  < syntax : imandraSyntax
+  { syntax : imandraSyntax
   ; debug : bool
-  > Js.t
+  } [@@bs.deriving abstract]
 
 type imandraProcess =
   { nodeProcess : Node.Child_process.spawnResult
-  }
+  } [@@bs.deriving abstract]
 
 let waitForPrompt (process : imandraProcess) (promptLine : string) : unit Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
-      let np = Node.Child_process.readAs process.nodeProcess in
+      let np = Node.Child_process.readAs (process |. nodeProcessGet) in
       let so = np##stdout |> Js.Null.getExn in
       let rec handleStdout b =
         let s = Node.Buffer.toString b in
@@ -50,7 +50,8 @@ let waitForPrompt (process : imandraProcess) (promptLine : string) : unit Js.Pro
     )
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
-let printStreamsDebug np =
+let printStreamsDebug (p : imandraProcess) =
+  let np = (p |. nodeProcessGet) in
   let props = Node.Child_process.readAs np in
   let so = props##stdout |> Js.Null.getExn in
   let se = props##stderr |> Js.Null.getExn in
@@ -77,12 +78,12 @@ let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
 
   Js.Promise.make (fun ~resolve ~reject:_ ->
       let np = spawn "imandra-repl-dev" ["-require"; "cohttp.lwt"] in
-      let ip = { nodeProcess = np } in
+      let ip = imandraProcess ~nodeProcess:np in
 
       ignore (np |. spawnOn (`close handleCloseDuringStart));
 
-      if opts##debug then
-        printStreamsDebug np
+      if (opts |. debugGet) then
+        printStreamsDebug ip
       else
         ();
 
@@ -90,7 +91,7 @@ let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
         (Js.Promise.then_
            (fun _ ->
               ignore (np |. spawnOff (`close handleCloseDuringStart));
-              resolve { nodeProcess = np } [@bs];
+              resolve ip [@bs];
               Js.Promise.resolve ();
            )
            (waitForPrompt ip "# "))
