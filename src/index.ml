@@ -71,14 +71,25 @@ let printStreamsDebug (p : imandraProcess) =
 
 let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
 
-  let handleCloseDuringStart code =
-    if code = 3 then
-      raise (Js.Exn.raiseError "imandra-repl requires login. Start imandra-repl manually to login." )
+  let makeHandleCloseDuringStart (p : imandraProcess) =
+    let np = (p |. nodeProcessGet) in
+    let props = Node.Child_process.readAs np in
+    let se = props##stderr |> Js.Null.getExn in
+    let seText = ref "" in
+    ignore
+      (se |. bufferOn (`data (fun b ->
+           let s = Node.Buffer.toString b in
+           seText := Js.String.concat !seText s;
+         )));
+    fun code ->
+      Js.Console.error !seText;
+      raise (Js.Exn.raiseError (Printf.sprintf "Imandra process exited during startup (code: %d)." code) )
   in
 
   Js.Promise.make (fun ~resolve ~reject:_ ->
       let np = spawn "imandra-repl-dev" [|"--non-interactive"; "-raw"; "-require"; "cohttp.lwt"|] in
       let ip = imandraProcess ~nodeProcess:np in
+      let handleCloseDuringStart = makeHandleCloseDuringStart ip in
 
       ignore (np |. spawnOn (`close handleCloseDuringStart));
 

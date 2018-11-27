@@ -65,24 +65,45 @@ function printStreamsDebug(p) {
 }
 
 function start(opts) {
-  var handleCloseDuringStart = function (code) {
-    if (code === 3) {
-      throw Js_exn.raiseError("imandra-repl requires login. Start imandra-repl manually to login.");
-    } else {
-      return 0;
-    }
+  var makeHandleCloseDuringStart = function (p) {
+    var np = p.nodeProcess;
+    var se = Js_null.getExn(np.stderr);
+    var seText = /* record */[/* contents */""];
+    se.on("data", (function (b) {
+            var s = b.toString();
+            seText[0] = s.concat(seText[0]);
+            return /* () */0;
+          }));
+    return (function (code) {
+        console.error(seText[0]);
+        throw Js_exn.raiseError(Curry._1(Printf.sprintf(/* Format */[
+                          /* String_literal */Block.__(11, [
+                              "Imandra process exited during startup (code: ",
+                              /* Int */Block.__(4, [
+                                  /* Int_d */0,
+                                  /* No_padding */0,
+                                  /* No_precision */0,
+                                  /* String_literal */Block.__(11, [
+                                      ").",
+                                      /* End_of_format */0
+                                    ])
+                                ])
+                            ]),
+                          "Imandra process exited during startup (code: %d)."
+                        ]), code));
+      });
   };
   return new Promise((function (resolve, param) {
-                var np = Child_process.spawn("imandra-repl-dev", /* :: */[
+                var np = Child_process.spawn("imandra-repl-dev", /* array */[
+                      "--non-interactive",
+                      "-raw",
                       "-require",
-                      /* :: */[
-                        "cohttp.lwt",
-                        /* [] */0
-                      ]
+                      "cohttp.lwt"
                     ]);
                 var ip = {
                   nodeProcess: np
                 };
+                var handleCloseDuringStart = makeHandleCloseDuringStart(ip);
                 np.on("close", handleCloseDuringStart);
                 if (opts.debug) {
                   printStreamsDebug(ip);
