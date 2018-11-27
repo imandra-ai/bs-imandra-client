@@ -2,22 +2,22 @@ external spawn : string -> string list -> Node.Child_process.spawnResult = "" [@
 
 external spawnOn
   : Node.Child_process.spawnResult
-    -> ([ `close of int -> unit ])
+    -> ([ `close of int -> unit ] [@bs.string])
     -> Node.Child_process.spawnResult = "on" [@@bs.send]
 
 external spawnOff
   : Node.Child_process.spawnResult
-    -> ([ `close of int -> unit ])
+    -> ([ `close of int -> unit ] [@bs.string])
     -> Node.Child_process.spawnResult = "off" [@@bs.send]
 
 external bufferOn
   : Node.string_buffer
-    -> ([ `data of Node.Buffer.t -> unit])
+    -> ([ `data of Node.Buffer.t -> unit] [@bs.string])
     -> Node.string_buffer = "on" [@@bs.send]
 
 external bufferOff
   : Node.string_buffer
-    -> ([ `data of Node.Buffer.t -> unit])
+    -> ([ `data of Node.Buffer.t -> unit] [@bs.string])
     -> Node.string_buffer = "off" [@@bs.send]
 
 type imandraSyntax = Reason | OCaml
