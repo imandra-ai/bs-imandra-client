@@ -29,6 +29,40 @@ function waitForPrompt($$process, promptLine) {
               }));
 }
 
+function printStreamsDebug(np) {
+  var so = Js_null.getExn(np.stdout);
+  var se = Js_null.getExn(np.stderr);
+  so.on("data", (function (b) {
+          var s = b.toString();
+          console.log(Curry._1(Printf.sprintf(/* Format */[
+                        /* String_literal */Block.__(11, [
+                            "STDOUT: ",
+                            /* String */Block.__(2, [
+                                /* No_padding */0,
+                                /* End_of_format */0
+                              ])
+                          ]),
+                        "STDOUT: %s"
+                      ]), s));
+          return /* () */0;
+        }));
+  se.on("data", (function (b) {
+          var s = b.toString();
+          console.log(Curry._1(Printf.sprintf(/* Format */[
+                        /* String_literal */Block.__(11, [
+                            "STDERR: ",
+                            /* String */Block.__(2, [
+                                /* No_padding */0,
+                                /* End_of_format */0
+                              ])
+                          ]),
+                        "STDERR: %s"
+                      ]), s));
+          return /* () */0;
+        }));
+  return /* () */0;
+}
+
 function start(opts) {
   var handleCloseDuringStart = function (code) {
     if (code === 3) {
@@ -48,36 +82,7 @@ function start(opts) {
                 var ip = /* record */[/* nodeProcess */np];
                 np.on("close", handleCloseDuringStart);
                 if (opts.debug) {
-                  var so = Js_null.getExn(np.stdout);
-                  var se = Js_null.getExn(np.stderr);
-                  so.on("data", (function (b) {
-                          var s = b.toString();
-                          console.log(Curry._1(Printf.sprintf(/* Format */[
-                                        /* String_literal */Block.__(11, [
-                                            "STDOUT: ",
-                                            /* String */Block.__(2, [
-                                                /* No_padding */0,
-                                                /* End_of_format */0
-                                              ])
-                                          ]),
-                                        "STDOUT: %s"
-                                      ]), s));
-                          return /* () */0;
-                        }));
-                  se.on("data", (function (b) {
-                          var s = b.toString();
-                          console.log(Curry._1(Printf.sprintf(/* Format */[
-                                        /* String_literal */Block.__(11, [
-                                            "STDERR: ",
-                                            /* String */Block.__(2, [
-                                                /* No_padding */0,
-                                                /* End_of_format */0
-                                              ])
-                                          ]),
-                                        "STDERR: %s"
-                                      ]), s));
-                          return /* () */0;
-                        }));
+                  printStreamsDebug(np);
                 }
                 waitForPrompt(ip, "# ").then((function (param) {
                         np.off("close", handleCloseDuringStart);

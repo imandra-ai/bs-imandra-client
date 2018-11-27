@@ -50,6 +50,24 @@ let waitForPrompt (process : imandraProcess) (promptLine : string) : unit Js.Pro
     )
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
+let printStreamsDebug np =
+  let props = Node.Child_process.readAs np in
+  let so = props##stdout |> Js.Null.getExn in
+  let se = props##stderr |> Js.Null.getExn in
+
+  ignore
+    (so |. bufferOn (`data (fun b ->
+         let s = Node.Buffer.toString b in
+         Js.Console.log (Printf.sprintf "STDOUT: %s" s)
+       )));
+
+  ignore
+    ( se |. bufferOn (`data (fun b ->
+          let s = Node.Buffer.toString b in
+          Js.Console.log (Printf.sprintf "STDERR: %s" s)
+        )))
+
+
 let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
 
   let handleCloseDuringStart code =
@@ -59,26 +77,12 @@ let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
 
   Js.Promise.make (fun ~resolve ~reject:_ ->
       let np = spawn "imandra-repl-dev" ["-require"; "cohttp.lwt"] in
-      let props = Node.Child_process.readAs np in
       let ip = { nodeProcess = np } in
 
       ignore (np |. spawnOn (`close handleCloseDuringStart));
 
       if opts##debug then
-        let so = props##stdout |> Js.Null.getExn in
-        let se = props##stderr |> Js.Null.getExn in
-
-        ignore
-          (so |. bufferOn (`data (fun b ->
-               let s = Node.Buffer.toString b in
-               Js.Console.log (Printf.sprintf "STDOUT: %s" s)
-             )));
-
-        ignore
-          ( se |. bufferOn (`data (fun b ->
-                let s = Node.Buffer.toString b in
-                Js.Console.log (Printf.sprintf "STDERR: %s" s)
-              )));
+        printStreamsDebug np
       else
         ();
 
