@@ -31,7 +31,7 @@ type imandraProcess =
   { nodeProcess : Node.Child_process.spawnResult
   } [@@bs.deriving abstract]
 
-let waitForPrompt (process : imandraProcess) (promptLine : string) : unit Js.Promise.t =
+let waitForPrompt (process : imandraProcess) (promptLine : string) : 'a Js.undefined Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
       let np = Node.Child_process.readAs (process |. nodeProcessGet) in
       let so = np##stdout |> Js.Null.getExn in
@@ -41,14 +41,13 @@ let waitForPrompt (process : imandraProcess) (promptLine : string) : unit Js.Pro
         if (lines |> Js.Array.includes promptLine) then
           begin
             ignore (so |. bufferOff (`data handleStdout));
-            resolve "-" [@bs]
+            resolve Js.undefined [@bs]
           end
         else
           ();
       in
       ignore (so |. bufferOn (`data handleStdout))
     )
-  |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
 let printStreamsDebug (p : imandraProcess) =
   let np = (p |. nodeProcessGet) in
@@ -104,6 +103,6 @@ let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
             (fun _ ->
                ignore (np |. spawnOff (`close handleCloseDuringStart));
                resolve ip [@bs];
-               Js.Promise.resolve ();
+               Js.Promise.resolve Js.undefined;
             )
         ))

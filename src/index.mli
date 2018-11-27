@@ -9,7 +9,7 @@ type imandraProcess =
   { nodeProcess : Node.Child_process.spawnResult
   } [@@bs.deriving abstract]
 
-val waitForPrompt : imandraProcess -> string -> unit Js.Promise.t
+val waitForPrompt : imandraProcess -> string -> 'a Js.undefined Js.Promise.t
 
 val start : imandraOptions -> imandraProcess Js.Promise.t
 

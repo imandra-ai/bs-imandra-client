@@ -10,22 +10,20 @@ var Child_process = require("child_process");
 
 function waitForPrompt($$process, promptLine) {
   return new Promise((function (resolve, param) {
-                  var np = $$process.nodeProcess;
-                  var so = Js_null.getExn(np.stdout);
-                  var handleStdout = function (b) {
-                    var s = b.toString();
-                    var lines = s.split("\n");
-                    if (lines.includes(promptLine)) {
-                      so.off("data", handleStdout);
-                      return resolve("-");
-                    } else {
-                      return /* () */0;
-                    }
-                  };
-                  so.on("data", handleStdout);
-                  return /* () */0;
-                })).then((function (param) {
-                return Promise.resolve(/* () */0);
+                var np = $$process.nodeProcess;
+                var so = Js_null.getExn(np.stdout);
+                var handleStdout = function (b) {
+                  var s = b.toString();
+                  var lines = s.split("\n");
+                  if (lines.includes(promptLine)) {
+                    so.off("data", handleStdout);
+                    return resolve(undefined);
+                  } else {
+                    return /* () */0;
+                  }
+                };
+                so.on("data", handleStdout);
+                return /* () */0;
               }));
 }
 
@@ -111,7 +109,7 @@ function start(opts) {
                 waitForPrompt(ip, "# ").then((function (param) {
                         np.off("close", handleCloseDuringStart);
                         resolve(ip);
-                        return Promise.resolve(/* () */0);
+                        return Promise.resolve(undefined);
                       }));
                 return /* () */0;
               }));
