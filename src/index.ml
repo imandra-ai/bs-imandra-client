@@ -1,4 +1,4 @@
-external spawn : string -> string list -> Node.Child_process.spawnResult = "" [@@bs.module "child_process"]
+external spawn : string -> string array -> Node.Child_process.spawnResult = "" [@@bs.module "child_process"]
 
 external spawnOn
   : Node.Child_process.spawnResult
@@ -77,7 +77,7 @@ let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
   in
 
   Js.Promise.make (fun ~resolve ~reject:_ ->
-      let np = spawn "imandra-repl-dev" ["-require"; "cohttp.lwt"] in
+      let np = spawn "imandra-repl-dev" [|"--non-interactive"; "-raw"; "-require"; "cohttp.lwt"|] in
       let ip = imandraProcess ~nodeProcess:np in
 
       ignore (np |. spawnOn (`close handleCloseDuringStart));
