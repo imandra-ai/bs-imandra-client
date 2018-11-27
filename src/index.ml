@@ -99,11 +99,11 @@ let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
         ();
 
       ignore
-        (Js.Promise.then_
-           (fun _ ->
-              ignore (np |. spawnOff (`close handleCloseDuringStart));
-              resolve ip [@bs];
-              Js.Promise.resolve ();
-           )
-           (waitForPrompt ip "# "))
-    )
+        (waitForPrompt ip "# "
+         |> Js.Promise.then_
+            (fun _ ->
+               ignore (np |. spawnOff (`close handleCloseDuringStart));
+               resolve ip [@bs];
+               Js.Promise.resolve ();
+            )
+        ))
