@@ -14,7 +14,7 @@ function waitForPrompt($$process, promptLine) {
                   var so = Js_null.getExn(np.stdout);
                   var handleStdout = function (b) {
                     var s = b.toString();
-                    var lines = "\n".split(s);
+                    var lines = s.split("\n");
                     if (lines.includes(promptLine)) {
                       so.off("data", handleStdout);
                       return resolve("-");

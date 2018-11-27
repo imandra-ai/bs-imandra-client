@@ -37,7 +37,7 @@ let waitForPrompt (process : imandraProcess) (promptLine : string) : unit Js.Pro
       let so = np##stdout |> Js.Null.getExn in
       let rec handleStdout b =
         let s = Node.Buffer.toString b in
-        let lines = s |. Js.String.split "\n" in
+        let lines = s |> Js.String.split "\n" in
         if (lines |> Js.Array.includes promptLine) then
           begin
             ignore (so |. bufferOff (`data handleStdout));
