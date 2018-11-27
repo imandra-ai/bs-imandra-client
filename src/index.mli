@@ -4,7 +4,7 @@ type imandraOptions
 
 type imandraProcess
 
-(* val wait_for_prompt : imandraProcess -> unit Js.Promise.t *)
+val waitForPrompt : imandraProcess -> string -> unit Js.Promise.t
 
 val start : imandraOptions -> imandraProcess Js.Promise.t
 
