@@ -16,19 +16,13 @@ function waitForPrompt($$process, promptLine) {
                     var s = b.toString();
                     var lines = "\n".split(s);
                     if (lines.includes(promptLine)) {
-                      so.off(/* `data */[
-                            -1033677270,
-                            handleStdout
-                          ]);
+                      so.off("data", handleStdout);
                       return resolve("-");
                     } else {
                       return /* () */0;
                     }
                   };
-                  so.on(/* `data */[
-                        -1033677270,
-                        handleStdout
-                      ]);
+                  so.on("data", handleStdout);
                   return /* () */0;
                 })).then((function (param) {
                 return Promise.resolve(/* () */0);
@@ -52,53 +46,41 @@ function start(opts) {
                       ]
                     ]);
                 var ip = /* record */[/* nodeProcess */np];
-                np.on(/* `close */[
-                      -933029960,
-                      handleCloseDuringStart
-                    ]);
-                if (opts[/* debug */1]) {
+                np.on("close", handleCloseDuringStart);
+                if (opts.debug) {
                   var so = Js_null.getExn(np.stdout);
                   var se = Js_null.getExn(np.stderr);
-                  so.on(/* `data */[
-                        -1033677270,
-                        (function (b) {
-                            var s = b.toString();
-                            console.log(Curry._1(Printf.sprintf(/* Format */[
-                                          /* String_literal */Block.__(11, [
-                                              "STDOUT: ",
-                                              /* String */Block.__(2, [
-                                                  /* No_padding */0,
-                                                  /* End_of_format */0
-                                                ])
-                                            ]),
-                                          "STDOUT: %s"
-                                        ]), s));
-                            return /* () */0;
-                          })
-                      ]);
-                  se.on(/* `data */[
-                        -1033677270,
-                        (function (b) {
-                            var s = b.toString();
-                            console.log(Curry._1(Printf.sprintf(/* Format */[
-                                          /* String_literal */Block.__(11, [
-                                              "STDERR: ",
-                                              /* String */Block.__(2, [
-                                                  /* No_padding */0,
-                                                  /* End_of_format */0
-                                                ])
-                                            ]),
-                                          "STDERR: %s"
-                                        ]), s));
-                            return /* () */0;
-                          })
-                      ]);
+                  so.on("data", (function (b) {
+                          var s = b.toString();
+                          console.log(Curry._1(Printf.sprintf(/* Format */[
+                                        /* String_literal */Block.__(11, [
+                                            "STDOUT: ",
+                                            /* String */Block.__(2, [
+                                                /* No_padding */0,
+                                                /* End_of_format */0
+                                              ])
+                                          ]),
+                                        "STDOUT: %s"
+                                      ]), s));
+                          return /* () */0;
+                        }));
+                  se.on("data", (function (b) {
+                          var s = b.toString();
+                          console.log(Curry._1(Printf.sprintf(/* Format */[
+                                        /* String_literal */Block.__(11, [
+                                            "STDERR: ",
+                                            /* String */Block.__(2, [
+                                                /* No_padding */0,
+                                                /* End_of_format */0
+                                              ])
+                                          ]),
+                                        "STDERR: %s"
+                                      ]), s));
+                          return /* () */0;
+                        }));
                 }
                 waitForPrompt(ip, "# ").then((function (param) {
-                        np.off(/* `close */[
-                              -933029960,
-                              handleCloseDuringStart
-                            ]);
+                        np.off("close", handleCloseDuringStart);
                         resolve(/* record */[/* nodeProcess */np]);
                         return Promise.resolve(/* () */0);
                       }));

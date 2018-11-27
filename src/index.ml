@@ -23,9 +23,9 @@ external bufferOff
 type imandraSyntax = Reason | OCaml
 
 type imandraOptions =
-  { syntax : imandraSyntax
+  < syntax : imandraSyntax
   ; debug : bool
-  }
+  > Js.t
 
 type imandraProcess =
   { nodeProcess : Node.Child_process.spawnResult
@@ -64,7 +64,7 @@ let start (opts : imandraOptions) : imandraProcess Js.Promise.t =
 
       ignore (np |. spawnOn (`close handleCloseDuringStart));
 
-      if opts.debug then
+      if opts##debug then
         let so = props##stdout |> Js.Null.getExn in
         let se = props##stderr |> Js.Null.getExn in
 

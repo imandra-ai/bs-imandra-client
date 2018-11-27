@@ -1,6 +1,9 @@
-type imandraSyntax
+type imandraSyntax = Reason | OCaml
 
-type imandraOptions
+type imandraOptions =
+  < syntax : imandraSyntax
+  ; debug : bool
+  > Js.t
 
 type imandraProcess
 
