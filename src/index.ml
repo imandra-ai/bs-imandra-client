@@ -137,7 +137,7 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
       |> Js.Promise.then_ (fun port ->
           let syntaxArg = if opts.syntax = Reason then [|"-reason"|] else [||] in
           let args = (Array.append [|"--non-interactive"; "-port"; (string_of_int port)|] syntaxArg) in
-          let np = spawn "imandra-http-server-dev" args in
+          let np = spawn opts.serverCmd args in
 
           listenForStartupExit np;
 
