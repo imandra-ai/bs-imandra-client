@@ -6,6 +6,7 @@ type imandraOptions =
 
 type imandraProcess =
   { nodeProcess : Node.Child_process.spawnResult
+  ; port : int
   } [@@bs.deriving abstract]
 
 val start : imandraOptions -> imandraProcess Js.Promise.t
