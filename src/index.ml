@@ -120,7 +120,6 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
 
     startupExitSpawnCb :=
       (fun code ->
-         print_endline "err0r";
          Js.Console.error !seText;
          raise (Js.Exn.raiseError (Printf.sprintf "Imandra process exited during startup (code: %d)." code) ));
 
