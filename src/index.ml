@@ -173,7 +173,7 @@ let stop (p : imandraProcess) : unit Js.Promise.t =
           ;
         );
       np |. spawnOn (`exit !handler) |> ignore;
-      np |. spawnKill 9 |> ignore;
+      np |. spawnKill 2 |> ignore;
 
     )
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
