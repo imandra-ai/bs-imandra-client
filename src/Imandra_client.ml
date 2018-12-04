@@ -159,10 +159,8 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
       |> ignore
     )
 
-external spawnKill
-  : Node.Child_process.spawnResult
-    -> int
-    -> unit = "kill" [@@bs.send]
+external spawnKill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@bs.send]
+external spawnUnref : Node.Child_process.spawnResult -> unit -> unit = "unref" [@@bs.send]
 
 let stop (p : imandraProcess) : unit Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
@@ -170,8 +168,8 @@ let stop (p : imandraProcess) : unit Js.Promise.t =
       let rec handler = ref (fun _ -> ()) in
       handler := (fun code ->
           np |. spawnOff (`exit !handler) |> ignore;
-          resolve code [@bs]
-          ;
+          np |. spawnUnref () |> ignore;
+          resolve code [@bs];
         );
       np |. spawnOn (`exit !handler) |> ignore;
       np |. spawnKill 2 |> ignore;
