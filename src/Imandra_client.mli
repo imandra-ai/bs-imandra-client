@@ -34,3 +34,7 @@ type verifyResult =
   | Refuted of refutedResult
 
 val verify : imandraProcess -> src:string -> Js.Json.t Js.Promise.t
+
+module Decode : sig
+  val verifyResult : Js.Json.t -> verifyResult
+end
