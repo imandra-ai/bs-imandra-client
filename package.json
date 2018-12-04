@@ -4,7 +4,8 @@
   "description": "",
   "main": "src/Imandra_client.bs.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "bsb -make-world"
   },
   "author": "",
   "license": "ISC",
@@ -14,5 +15,9 @@
     "bs-platform": "^4.0.7",
     "isomorphic-fetch": "^2.2.1",
     "portfinder": "^1.0.19"
+  },
+  "devDependencies": {
+    "@glennsl/bs-jest": "^0.4.5",
+    "jest": "^23.6.0"
   }
 }
