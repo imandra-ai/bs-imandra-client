@@ -50,5 +50,5 @@ let () =
         |> ignore
 
       | None ->
-        fail "ohnoe" |> ignore
+        fail "no imandra process available during teardown?" |> ignore
     )
