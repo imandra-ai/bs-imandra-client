@@ -1,5 +1,5 @@
 {
-  "name": "node-imandra-client",
+  "name": "bs-imandra-client",
   "version": "0.1.0",
   "sources": {
     "dir" : "src",
