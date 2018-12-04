@@ -43,7 +43,6 @@ let () =
         Imandra_client.stop ip
         |> Js.Promise.then_ (fun _ ->
             runningImandraProcess := None;
-            (* this not terminating is due to an issue with bs-jest, fixed by this PR: https://github.com/glennsl/bs-jest/pull/36 *)
             finish ();
             Js.Promise.resolve ()
           )
