@@ -39,6 +39,7 @@ type imandraOptionsWithDefaults =
 type imandraProcess =
   { nodeProcess : Node.Child_process.spawnResult
   ; port : int
+  ; baseUrl : string
   } [@@bs.deriving abstract]
 
 let printStreamsDebug (np : Node.Child_process.spawnResult) =
@@ -58,7 +59,7 @@ let printStreamsDebug (np : Node.Child_process.spawnResult) =
           Js.Console.log (Printf.sprintf "STDERR: %s" s)
         )))
 
-let baseUrl (port : int) =
+let makeBaseUrl (port : int) =
   Printf.sprintf "http://localhost:%d" port
 
 let timeout ms : unit Js.Promise.t =
@@ -78,7 +79,7 @@ let timeout ms : unit Js.Promise.t =
 let waitForServer (port : int) : unit Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
       let rec checkStatus () =
-        Fetch.fetch (Printf.sprintf "%s/status" (baseUrl port))
+        Fetch.fetch (Printf.sprintf "%s/status" (makeBaseUrl port))
         |> Js.Promise.then_ (fun res ->
             resolve res [@bs];
             Js.Promise.resolve ();
@@ -151,7 +152,7 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
           waitForServer port
           |> Js.Promise.then_ (fun () ->
               unlistenForStartupExit np;
-              resolve (imandraProcess ~nodeProcess:np ~port) [@bs];
+              resolve (imandraProcess ~nodeProcess:np ~port ~baseUrl:("http://localhost:" ^ (string_of_int port))) [@bs];
               Js.Promise.resolve ();
             )
         )
@@ -178,3 +179,62 @@ let stop (p : imandraProcess) : unit Js.Promise.t =
     )
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
+external bufferToStringWithEncoding : Node.Buffer.t ->
+  ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
+  string = "toString" [@@bs.send]
+
+type model =
+  { language : string
+  ; src : string
+  }
+
+type refutedCounterexample =
+  { model : model }
+
+type unknownResult =
+  { unknownReason: string }
+
+type refutedResult =
+  { refutedCounterexample: refutedCounterexample }
+
+type verifyResult =
+  | Proved
+  | Unknown of unknownResult
+  | Refuted of refutedResult
+
+module Decode = struct
+  let modelDecoder json =
+    Json.Decode.(
+      { language = (field "language" string json)
+      ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
+      }
+    )
+
+  let cxDecoder json =
+    Json.Decode.(
+      { model = field "model" modelDecoder json
+      }
+    )
+
+  let verifyResult json =
+    Json.Decode.(
+      let r = (field "result" string json) in
+      match (field "result" string json) with
+      | "proved" -> Proved
+      | "unknown" -> Unknown { unknownReason = field "unknown_reason" string json }
+      | "refuted" -> Refuted { refutedCounterexample = field "refuted_counterexample" cxDecoder json }
+      | _ -> failwith (Printf.sprintf "unknown verify result: %s" r)
+    )
+end
+
+let verify (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
+  let b = Node.Buffer.fromString src in
+  let encodedSrc = (bufferToStringWithEncoding b `base64) in
+  let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
+  let body = Fetch.BodyInit.make req in
+  Fetch.fetchWithRequestInit
+    (Fetch.Request.make ((p |. baseUrlGet) ^ "/verify/by-src"))
+    (Fetch.RequestInit.make ~method_:Post ~body ())
+  |> Js.Promise.then_ (fun res ->
+      Fetch.Response.json res
+    )
