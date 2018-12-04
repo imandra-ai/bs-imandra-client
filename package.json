@@ -1,5 +1,5 @@
 {
-  "name": "imandra-client",
+  "name": "bs-imandra-client",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.bs.js",
