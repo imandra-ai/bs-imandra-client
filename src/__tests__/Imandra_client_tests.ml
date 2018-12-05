@@ -19,17 +19,10 @@ let () =
       match !runningImandraProcess with
       | Some ip ->
         Imandra_client.Verify.by_src ip ~src:"fun x -> x = 3"
-        |> Js.Promise.then_ (fun json ->
-            let res =
-              json
-              |> Imandra_client.Verify.Decode.verifyResult
-            in
-            let assertion =
-              match res with
-              | Refuted _ -> pass
-              | _ -> fail "Wrong verify result"
-            in
-            Js.Promise.resolve assertion
+        |> Js.Promise.then_ (function
+            | Belt.Result.Ok (Imandra_client.Verify.Refuted _, _) -> Js.Promise.resolve pass
+            | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
+            | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
           )
       | None ->
         Js.Promise.reject (Failure "no imandra process available?")
@@ -40,19 +33,13 @@ let () =
       match !runningImandraProcess with
       | Some ip ->
         Imandra_client.Eval.by_src ip ~src:"let rev_rev x = 3 = 3"
-        |> Js.Promise.then_ (fun json ->
-            Imandra_client.Verify.by_name ip ~name:"rev_rev"
-            |> Js.Promise.then_ (fun json ->
-                let res =
-                  json
-                  |> Imandra_client.Verify.Decode.verifyResult
-                in
-                let assertion =
-                  match res with
-                  | Proved -> pass
-                  | _ -> fail "Wrong verify result"
-                in
-                Js.Promise.resolve assertion
+        |> Js.Promise.then_ (function
+            | Belt.Result.Ok _ ->
+              Imandra_client.Verify.by_name ip ~name:"rev_rev"
+              |> Js.Promise.then_ (function
+                  | Belt.Result.Ok (Imandra_client.Verify.Proved, _) -> Js.Promise.resolve pass
+                  | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
+                  | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
               )
           )
       | None ->
@@ -64,18 +51,10 @@ let () =
       match !runningImandraProcess with
       | Some ip ->
         Imandra_client.Instance.by_src ip ~src:"fun x -> List.length x > 4"
-        |> Js.Promise.then_ (fun json ->
-            Js.Console.log json;
-            let res =
-              json
-              |> Imandra_client.Instance.Decode.instanceResult
-            in
-            let assertion =
-              match res with
-              | Sat _ -> pass
-              | _ -> fail "Wrong verify result"
-            in
-            Js.Promise.resolve assertion
+        |> Js.Promise.then_ (function
+            | Belt.Result.Ok (Imandra_client.Instance.Sat _, _) -> Js.Promise.resolve pass
+            | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "instance result not satisifed")
+            | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
           )
       | None ->
         Js.Promise.reject (Failure "no imandra process available?")

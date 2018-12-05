@@ -42,6 +42,11 @@ type imandraProcess =
   ; baseUrl : string
   } [@@bs.deriving abstract]
 
+type 'a with_json =
+  ('a * Js.Json.t)
+
+type error = string
+
 let printStreamsDebug (np : Node.Child_process.spawnResult) =
   let props = Node.Child_process.readAs np in
   let so = props##stdout |> Js.Null.getExn in
@@ -178,6 +183,15 @@ external bufferToStringWithEncoding : Node.Buffer.t ->
   ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
   string = "toString" [@@bs.send]
 
+let error_or decoder json : ('a with_json, error with_json) Belt.Result.t =
+  Json.Decode.(
+    match optional (field "error" string) json with
+    | Some error ->
+      Error (error, json)
+    | None ->
+      Ok (decoder json, json)
+  )
+
 module Verify = struct
   type model =
     { language : string
@@ -224,7 +238,7 @@ module Verify = struct
   end
 
 
-  let by_src (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
+  let by_src (p : imandraProcess) ~(src : string) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
@@ -235,8 +249,11 @@ module Verify = struct
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
       )
+    |> Js.Promise.then_ (fun json ->
+        Js.Promise.resolve (error_or Decode.verifyResult json)
+      )
 
-  let by_name (p : imandraProcess) ~(name : string) : Js.Json.t Js.Promise.t =
+  let by_name (p : imandraProcess) ~(name : string) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
@@ -245,10 +262,18 @@ module Verify = struct
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
       )
+    |> Js.Promise.then_ (fun json ->
+        Js.Promise.resolve (error_or Decode.verifyResult json)
+      )
 end
 
 module Eval = struct
-  let by_src (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
+  module Decode = struct
+    let evalResult _json =
+      ()
+  end
+
+  let by_src (p : imandraProcess) ~(src : string) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
@@ -259,10 +284,12 @@ module Eval = struct
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
       )
+    |> Js.Promise.then_ (fun json ->
+        Js.Promise.resolve (error_or Decode.evalResult json)
+      )
 end
 
 module Instance = struct
-
   type model =
     { language : string
     ; src : string
@@ -307,7 +334,7 @@ module Instance = struct
       )
   end
 
-  let by_src (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
+  let by_src (p : imandraProcess) ~(src : string) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
@@ -318,8 +345,11 @@ module Instance = struct
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
       )
+    |> Js.Promise.then_ (fun json ->
+        Js.Promise.resolve (error_or Decode.instanceResult json)
+      )
 
-  let by_name (p : imandraProcess) ~(name : string) : Js.Json.t Js.Promise.t =
+  let by_name (p : imandraProcess) ~(name : string) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
@@ -327,5 +357,8 @@ module Instance = struct
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
+      )
+    |> Js.Promise.then_ (fun json ->
+        Js.Promise.resolve (error_or Decode.instanceResult json)
       )
 end

@@ -14,6 +14,11 @@ val start : imandraOptions -> imandraProcess Js.Promise.t
 
 val stop : imandraProcess -> unit Js.Promise.t
 
+type 'a with_json =
+  ('a * Js.Json.t)
+
+type error = string
+
 module Verify : sig
   type model =
     { language : string
@@ -38,12 +43,12 @@ module Verify : sig
     val verifyResult : Js.Json.t -> verifyResult
   end
 
-  val by_src : imandraProcess -> src:string -> Js.Json.t Js.Promise.t
-  val by_name : imandraProcess -> name:string -> Js.Json.t Js.Promise.t
+  val by_src : imandraProcess -> src:string -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val by_name : imandraProcess -> name:string -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
 end
 
 module Eval : sig
-  val by_src : imandraProcess -> src:string -> Js.Json.t Js.Promise.t
+  val by_src : imandraProcess -> src:string -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 
 module Instance : sig
@@ -70,6 +75,6 @@ module Instance : sig
     val instanceResult : Js.Json.t -> instanceResult
   end
 
-  val by_src : imandraProcess -> src:string -> Js.Json.t Js.Promise.t
-  val by_name : imandraProcess -> name:string -> Js.Json.t Js.Promise.t
+  val by_src : imandraProcess -> src:string -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_name : imandraProcess -> name:string -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
 end
