@@ -61,6 +61,20 @@ let () =
     )
 
 let () =
+  testPromise "eval failure" (fun () ->
+      match !runningImandraProcess with
+      | Some ip ->
+        Imandra_client.Instance.by_src ip ~src:"garbage"
+        |> Js.Promise.then_ (function
+            | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "unexpected success")
+            | Belt.Result.Error (e, _) ->
+              Js.Promise.resolve (Expect.toEqual e (`Just "Unbound value garbage"))
+          )
+      | None ->
+        Js.Promise.reject (Failure "no imandra process available?")
+    )
+
+let () =
   afterAllAsync ~timeout:10000 (fun finish ->
       match !runningImandraProcess with
       | Some ip ->
