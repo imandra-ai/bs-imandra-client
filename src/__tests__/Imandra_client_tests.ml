@@ -5,7 +5,7 @@ let runningImandraProcess = ref None
 let () =
   beforeAllAsync (fun finish ->
       let open Imandra_client in
-      Imandra_client.start (imandraOptions ~syntax:"ocaml" ~serverCmd:"imandra-http-server-dev" ())
+      Imandra_client.start (imandraOptions ~syntax:"ocaml" ())
       |> Js.Promise.then_ (fun ip ->
           runningImandraProcess := Some ip;
           finish ();
