@@ -41,6 +41,7 @@ let () =
                   | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
                   | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
               )
+            | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
           )
       | None ->
         Js.Promise.reject (Failure "no imandra process available?")
