@@ -76,7 +76,7 @@ let () =
     )
 
 let () =
-  afterAllAsync ~timeout:10000 (fun finish ->
+  afterAllAsync ~timeout:30000 (fun finish ->
       match !runningImandraProcess with
       | Some ip ->
         Imandra_client.stop ip
