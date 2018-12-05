@@ -164,7 +164,7 @@ external spawnKill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@b
 let stop (p : imandraProcess) : unit Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
       let np = (p |. nodeProcessGet) in
-      let rec handler = ref (fun _ -> ()) in
+      let handler = ref (fun _ -> ()) in
       handler := (fun code ->
           np |. spawnOff (`close !handler) |> ignore;
           resolve code [@bs];
@@ -178,58 +178,154 @@ external bufferToStringWithEncoding : Node.Buffer.t ->
   ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
   string = "toString" [@@bs.send]
 
-type model =
-  { language : string
-  ; src : string
-  }
+module Verify = struct
+  type model =
+    { language : string
+    ; src : string
+    }
 
-type refutedCounterexample =
-  { model : model }
+  type counterexample =
+    { model : model }
 
-type unknownResult =
-  { unknownReason: string }
+  type unknownResult =
+    { reason: string }
 
-type refutedResult =
-  { refutedCounterexample: refutedCounterexample }
+  type refutedResult =
+    { counterexample: counterexample }
 
-type verifyResult =
-  | Proved
-  | Unknown of unknownResult
-  | Refuted of refutedResult
+  type verifyResult =
+    | Proved
+    | Unknown of unknownResult
+    | Refuted of refutedResult
 
-module Decode = struct
-  let modelDecoder json =
-    Json.Decode.(
-      { language = (field "language" string json)
-      ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
-      }
-    )
+  module Decode = struct
+    let model json =
+      Json.Decode.(
+        { language = (field "language" string json)
+        ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
+        }
+      )
 
-  let cxDecoder json =
-    Json.Decode.(
-      { model = field "model" modelDecoder json
-      }
-    )
+    let counterexample json =
+      Json.Decode.(
+        { model = field "model" model json
+        }
+      )
 
-  let verifyResult json =
-    Json.Decode.(
-      let r = (field "result" string json) in
-      match (field "result" string json) with
-      | "proved" -> Proved
-      | "unknown" -> Unknown { unknownReason = field "unknown_reason" string json }
-      | "refuted" -> Refuted { refutedCounterexample = field "refuted_counterexample" cxDecoder json }
-      | _ -> failwith (Printf.sprintf "unknown verify result: %s" r)
-    )
+    let verifyResult json =
+      Json.Decode.(
+        let r = (field "result" string json) in
+        match (field "result" string json) with
+        | "proved" -> Proved
+        | "unknown" -> Unknown { reason = field "unknown_reason" string json }
+        | "refuted" -> Refuted { counterexample = field "refuted_counterexample" counterexample json }
+        | _ -> failwith (Printf.sprintf "unknown verify result: %s" r)
+      )
+  end
+
+
+  let by_src (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
+    let b = Node.Buffer.fromString src in
+    let encodedSrc = (bufferToStringWithEncoding b `base64) in
+    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
+    let body = Fetch.BodyInit.make req in
+    Fetch.fetchWithRequestInit
+      (Fetch.Request.make ((p |. baseUrlGet) ^ "/verify/by-src"))
+      (Fetch.RequestInit.make ~method_:Post ~body ())
+    |> Js.Promise.then_ (fun res ->
+        Fetch.Response.json res
+      )
+
+  let by_name (p : imandraProcess) ~(name : string) : Js.Json.t Js.Promise.t =
+    let req = "{ \"name\": \"" ^ name ^ "\" }" in
+    let body = Fetch.BodyInit.make req in
+    Fetch.fetchWithRequestInit
+      (Fetch.Request.make ((p |. baseUrlGet) ^ "/verify/by-name"))
+      (Fetch.RequestInit.make ~method_:Post ~body ())
+    |> Js.Promise.then_ (fun res ->
+        Fetch.Response.json res
+      )
 end
 
-let verify (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
-  let b = Node.Buffer.fromString src in
-  let encodedSrc = (bufferToStringWithEncoding b `base64) in
-  let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
-  let body = Fetch.BodyInit.make req in
-  Fetch.fetchWithRequestInit
-    (Fetch.Request.make ((p |. baseUrlGet) ^ "/verify/by-src"))
-    (Fetch.RequestInit.make ~method_:Post ~body ())
-  |> Js.Promise.then_ (fun res ->
-      Fetch.Response.json res
-    )
+module Eval = struct
+  let by_src (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
+    let b = Node.Buffer.fromString src in
+    let encodedSrc = (bufferToStringWithEncoding b `base64) in
+    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
+    let body = Fetch.BodyInit.make req in
+    Fetch.fetchWithRequestInit
+      (Fetch.Request.make ((p |. baseUrlGet) ^ "/eval/by-src"))
+      (Fetch.RequestInit.make ~method_:Post ~body ())
+    |> Js.Promise.then_ (fun res ->
+        Fetch.Response.json res
+      )
+end
+
+module Instance = struct
+
+  type model =
+    { language : string
+    ; src : string
+    }
+
+  type example =
+    { model : model }
+
+  type unknownResult =
+    { reason: string }
+
+  type satResult =
+    { example: example }
+
+  type instanceResult =
+    | Sat of satResult
+    | Unknown of unknownResult
+    | Unsat
+
+  module Decode = struct
+    let model json =
+      Json.Decode.(
+        { language = (field "language" string json)
+        ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
+        }
+      )
+
+    let example json =
+      Json.Decode.(
+        { model = field "model" model json
+        }
+      )
+
+    let instanceResult json =
+      Json.Decode.(
+        let r = (field "result" string json) in
+        match (field "result" string json) with
+        | "unsat" -> Unsat
+        | "unknown" -> Unknown { reason = field "unknown_reason" string json }
+        | "sat" -> Sat { example = field "sat_example" example json }
+        | _ -> failwith (Printf.sprintf "unknown verify result: %s" r)
+      )
+  end
+
+  let by_src (p : imandraProcess) ~(src : string) : Js.Json.t Js.Promise.t =
+    let b = Node.Buffer.fromString src in
+    let encodedSrc = (bufferToStringWithEncoding b `base64) in
+    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
+    let body = Fetch.BodyInit.make req in
+    Fetch.fetchWithRequestInit
+      (Fetch.Request.make ((p |. baseUrlGet) ^ "/instance/by-src"))
+      (Fetch.RequestInit.make ~method_:Post ~body ())
+    |> Js.Promise.then_ (fun res ->
+        Fetch.Response.json res
+      )
+
+  let by_name (p : imandraProcess) ~(name : string) : Js.Json.t Js.Promise.t =
+    let req = "{ \"name\": \"" ^ name ^ "\" }" in
+    let body = Fetch.BodyInit.make req in
+    Fetch.fetchWithRequestInit
+      (Fetch.Request.make ((p |. baseUrlGet) ^ "/instance/by-name"))
+      (Fetch.RequestInit.make ~method_:Post ~body ())
+    |> Js.Promise.then_ (fun res ->
+        Fetch.Response.json res
+      )
+end
