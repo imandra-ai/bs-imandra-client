@@ -3,15 +3,13 @@ open Jest
 let runningImandraProcess = ref None
 
 let () =
-  beforeAllAsync (fun finish ->
+  beforeAllPromise (fun () ->
       let open Imandra_client in
-      Imandra_client.start (imandraOptions ~syntax:"ocaml" ())
+      Imandra_client.start (imandraOptions ~syntax:"ocaml" ~debug:true ~serverCmd:"imandra-http-server-dev" ())
       |> Js.Promise.then_ (fun ip ->
           runningImandraProcess := Some ip;
-          finish ();
           Js.Promise.resolve ()
         )
-      |> ignore
     )
 
 let () =
@@ -88,5 +86,6 @@ let () =
         |> ignore
 
       | None ->
-        fail "no imandra process available during teardown?" |> ignore
+        (* assume failure during startup *)
+        finish ();
     )

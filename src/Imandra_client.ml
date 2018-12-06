@@ -114,33 +114,33 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
   let startupExitOutputCb = ref (fun _ -> ()) in
   let startupExitSpawnCb = ref (fun _ -> ()) in
 
-  let listenForStartupClose (np : Node.Child_process.spawnResult) =
-    let props = Node.Child_process.readAs np in
-    let so = props##stdout |> Js.Null.getExn in
-    let seText = ref "" in
-    startupExitOutputCb :=
-      (fun b ->
-         let s = Node.Buffer.toString b in
-         seText := Js.String.concat !seText s;
-      );
+  Js.Promise.make (fun ~resolve ~reject ->
+      let listenForStartupClose (np : Node.Child_process.spawnResult) =
+        let props = Node.Child_process.readAs np in
+        let so = props##stdout |> Js.Null.getExn in
+        let seText = ref "" in
+        startupExitOutputCb :=
+          (fun b ->
+             let s = Node.Buffer.toString b in
+             seText := Js.String.concat !seText s;
+          );
 
-    startupExitSpawnCb :=
-      (fun code ->
-         Js.Console.error !seText;
-         raise (Js.Exn.raiseError (Printf.sprintf "Imandra process exited during startup (code: %d)." code) ));
+        startupExitSpawnCb :=
+          (fun code ->
+             Js.Console.error !seText;
+             reject (Failure (Printf.sprintf "Imandra process exited during startup (code: %d)." code)) [@bs]);
 
-    (so |. bufferOn (`data !startupExitOutputCb) |> ignore);
-    (np |. spawnOn (`close !startupExitSpawnCb) |> ignore);
-  in
+        (so |. bufferOn (`data !startupExitOutputCb) |> ignore);
+        (np |. spawnOn (`close !startupExitSpawnCb) |> ignore);
+      in
 
-  let unlistenForStartupClose (np : Node.Child_process.spawnResult) =
-    let props = Node.Child_process.readAs np in
-    let so = props##stdout |> Js.Null.getExn in
-    so |. bufferOff (`data !startupExitOutputCb) |> ignore;
-    np |. spawnOff (`close !startupExitSpawnCb) |> ignore;
-  in
+      let unlistenForStartupClose (np : Node.Child_process.spawnResult) =
+        let props = Node.Child_process.readAs np in
+        let so = props##stdout |> Js.Null.getExn in
+        so |. bufferOff (`data !startupExitOutputCb) |> ignore;
+        np |. spawnOff (`close !startupExitSpawnCb) |> ignore;
+      in
 
-  Js.Promise.make (fun ~resolve ~reject:_ ->
       getPort ()
       |> Js.Promise.then_ (fun port ->
           let syntaxArg = if opts.syntax = Reason then [|"-reason"|] else [||] in
