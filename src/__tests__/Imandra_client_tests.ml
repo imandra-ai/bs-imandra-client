@@ -66,6 +66,17 @@ let () =
     )
 
 let () =
+  testPromise "eval failure for mod_use" (fun () ->
+      let ip = !runningImandraProcess |> Belt.Option.getExn in
+      Imandra_client.Eval.by_src ip ~src:"#mod_use \"lol_no_file.iml\""
+      |> Js.Promise.then_ (function
+          | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "unexpected success")
+          | Belt.Result.Error (e, j) ->
+            Js.Promise.resolve (Expect.toContainString "Cannot find file" (`Just e))
+        )
+    )
+
+let () =
   afterAllAsync (fun finish ->
       match !runningImandraProcess with
       | Some ip ->
