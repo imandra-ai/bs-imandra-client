@@ -57,7 +57,7 @@ let () =
 let () =
   testPromise "eval failure" (fun () ->
       let ip = !runningImandraProcess |> Belt.Option.getExn in
-      Imandra_client.Instance.by_src ip ~src:"garbage"
+      Imandra_client.Eval.by_src ip ~src:"garbage"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "unexpected success")
           | Belt.Result.Error (e, _) ->
