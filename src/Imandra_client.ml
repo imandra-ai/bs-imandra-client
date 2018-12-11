@@ -2,7 +2,7 @@
 external spawn : string -> string array -> Node.Child_process.spawnResult = "" [@@bs.module "child_process"]
 external getPort : unit -> int Js.Promise.t = "getPortPromise" [@@bs.module "portfinder"]
 
-let function_name: 'a -> string = [%raw fun f -> "{return f.name}"];
+let function_name = [%raw fun f -> "{return f.name}"]
 
 external spawnOn
   : Node.Child_process.spawnResult
@@ -193,11 +193,6 @@ let error_or decoder json : ('a with_json, error with_json) Belt.Result.t =
     | None ->
       Ok (decoder json, json)
   )
-
-module type Named_module = sig val module_name : string end
-
-let name_from_refs (module M : Named_module) (f : 'a) =
-  Printf.sprintf "%s.%s" M.module_name (function_name f)
 
 module Verify = struct
   type model =
