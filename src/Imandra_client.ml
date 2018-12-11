@@ -194,7 +194,7 @@ let error_or decoder json : ('a with_json, error with_json) Belt.Result.t =
       Ok (decoder json, json)
   )
 
-module type Named_module = sig val module_name : string end;;
+module type Named_module = sig val module_name : string end
 
 let name_from_refs (module M : Named_module) (f : 'a) =
   Printf.sprintf "%s.%s" M.module_name (function_name f)

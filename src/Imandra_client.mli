@@ -1,3 +1,11 @@
+val function_name: 'a -> string
+
+module type Named_module = sig
+  val module_name : string
+end
+
+val name_from_refs : (module Named_module) -> 'a -> string
+
 type imandraOptions =
   { syntax : string
   ; debug : bool [@bs.optional]
