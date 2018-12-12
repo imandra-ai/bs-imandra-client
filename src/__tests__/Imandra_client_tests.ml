@@ -3,7 +3,7 @@ open Jest
 let runningImandraProcess = ref None
 
 let () =
-  beforeAllPromise (fun () ->
+  beforeAllPromise ~timeout:20000 (fun () ->
       let open Imandra_client in
       Imandra_client.start (imandraOptions ~debug:true ())
       |> Js.Promise.then_ (fun ip ->
@@ -17,7 +17,7 @@ let () =
     )
 
 let () =
-  testPromise "verify refuted" (fun () ->
+  testPromise ~timeout:20000 "verify refuted" (fun () ->
       let ip = !runningImandraProcess |> Belt.Option.getExn in
       Imandra_client.Verify.by_src ip ~src:"fun x -> x = 3"
       |> Js.Promise.then_ (function
@@ -28,7 +28,7 @@ let () =
     )
 
 let () =
-  testPromise "verify by name proved" (fun () ->
+  testPromise ~timeout:20000 "verify by name proved" (fun () ->
       let ip = !runningImandraProcess |> Belt.Option.getExn in
       Imandra_client.Eval.by_src ip ~src:"let rev_rev x = 3 = 3"
       |> Js.Promise.then_ (function
@@ -44,7 +44,7 @@ let () =
     )
 
 let () =
-  testPromise "instance" (fun () ->
+  testPromise ~timeout:20000 "instance" (fun () ->
       let ip = !runningImandraProcess |> Belt.Option.getExn in
       Imandra_client.Instance.by_src ip ~src:"fun x -> List.length x > 4"
       |> Js.Promise.then_ (function
@@ -55,7 +55,7 @@ let () =
     )
 
 let () =
-  testPromise "eval failure" (fun () ->
+  testPromise ~timeout:20000 "eval failure" (fun () ->
       let ip = !runningImandraProcess |> Belt.Option.getExn in
       Imandra_client.Eval.by_src ip ~src:"garbage"
       |> Js.Promise.then_ (function
@@ -66,7 +66,7 @@ let () =
     )
 
 let () =
-  testPromise "eval failure for mod_use" (fun () ->
+  testPromise ~timeout:20000 "eval failure for mod_use" (fun () ->
       let ip = !runningImandraProcess |> Belt.Option.getExn in
       Imandra_client.Eval.by_src ip ~src:"#mod_use \"lol_no_file.iml\""
       |> Js.Promise.then_ (function
@@ -113,6 +113,9 @@ let () =
     )
 
 
+
+let () =
+  afterAllAsync ~timeout:20000 (fun finish ->
       match !runningImandraProcess with
       | Some ip ->
         Imandra_client.stop ip
