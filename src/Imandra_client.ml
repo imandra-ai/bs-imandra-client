@@ -34,9 +34,8 @@ type imandraOptionsWithDefaults =
   ; serverCmd : string
   }
 
-type imandraProcess =
-  { nodeProcess : Node.Child_process.spawnResult
-  ; port : int
+type imandraServerInfo =
+  { port : int
   ; baseUrl : string
   } [@@bs.deriving abstract]
 
@@ -108,7 +107,7 @@ let withDefaults (opts : imandraOptions) : imandraOptionsWithDefaults =
   ; serverCmd = (match (opts |. serverCmdGet) with | None -> "imandra-http-server" | Some s -> s)
   }
 
-let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
+let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * imandraServerInfo) Js.Promise.t =
 
   let opts = withDefaults passedOpts in
 
@@ -158,7 +157,7 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
           waitForServer port
           |> Js.Promise.then_ (fun () ->
               unlistenForStartupClose np;
-              resolve (imandraProcess ~nodeProcess:np ~port ~baseUrl:("http://localhost:" ^ (string_of_int port))) [@bs];
+              resolve (np, imandraServerInfo ~port ~baseUrl:("http://localhost:" ^ (string_of_int port))) [@bs];
               Js.Promise.resolve ();
             )
         )
@@ -167,9 +166,8 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
 
 external spawnKill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@bs.send]
 
-let stop (p : imandraProcess) : unit Js.Promise.t =
+let stop (np : Node.Child_process.spawnResult) : unit Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
-      let np = (p |. nodeProcessGet) in
       let handler = ref (fun _ -> ()) in
       handler := (fun code ->
           np |. spawnOff (`close !handler) |> ignore;
@@ -239,7 +237,7 @@ module Verify = struct
   end
 
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraProcess) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraServerInfo) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
@@ -258,7 +256,7 @@ module Verify = struct
         Js.Promise.resolve (error_or Decode.verifyResult json)
       )
 
-  let by_name ~(name : string) (p : imandraProcess) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_name ~(name : string) (p : imandraServerInfo) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
@@ -278,7 +276,7 @@ module Eval = struct
       ()
   end
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraProcess) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraServerInfo) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
@@ -343,7 +341,7 @@ module Instance = struct
       )
   end
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraProcess) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraServerInfo) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
@@ -362,7 +360,7 @@ module Instance = struct
         Js.Promise.resolve (error_or Decode.instanceResult json)
       )
 
-  let by_name ~(name : string) (p : imandraProcess) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_name ~(name : string) (p : imandraServerInfo) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
@@ -381,7 +379,7 @@ module Decode = struct
     ()
 end
 
-let reset (p : imandraProcess) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+let reset (p : imandraServerInfo) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
     Fetch.fetchWithRequestInit
       (Fetch.Request.make ((p |. baseUrlGet) ^ "/reset"))
       (Fetch.RequestInit.make ~method_:Post ())
