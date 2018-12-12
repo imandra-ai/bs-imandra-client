@@ -377,3 +377,19 @@ module Instance = struct
         Js.Promise.resolve (error_or Decode.instanceResult json)
       )
 end
+
+module Decode = struct
+  let resetResult _json =
+    ()
+end
+
+let reset (p : imandraProcess) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+    Fetch.fetchWithRequestInit
+      (Fetch.Request.make ((p |. baseUrlGet) ^ "/reset"))
+      (Fetch.RequestInit.make ~method_:Post ())
+    |> Js.Promise.then_ (fun res ->
+        Fetch.Response.json res
+      )
+    |> Js.Promise.then_ (fun json ->
+        Js.Promise.resolve (error_or Decode.resetResult json)
+      )

@@ -83,3 +83,5 @@ module Instance : sig
   val by_src : ?syntax:syntax -> src:string -> imandraProcess -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
   val by_name : name:string -> imandraProcess -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
 end
+
+val reset : imandraProcess -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t

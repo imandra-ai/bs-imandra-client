@@ -113,6 +113,35 @@ let () =
     )
 
 
+let () =
+  testPromise ~timeout:20000 "reset" (fun () ->
+      let ip = !runningImandraProcess |> Belt.Option.getExn in
+      Imandra_client.Eval.by_src ip ~src:"let to_be_reset x = x = 3"
+      |> Js.Promise.then_ (function
+          | Belt.Result.Ok (_, _) ->
+            Imandra_client.Verify.by_name ip ~name:"to_be_reset"
+            |> Js.Promise.then_ (function
+                | Belt.Result.Ok (_, _) ->
+                  Imandra_client.reset ip
+                  |> Js.Promise.then_ (function
+                      | Belt.Result.Ok (_, _) ->
+                        Imandra_client.Verify.by_name ip ~name:"to_be_reset"
+                        |> Js.Promise.then_ (function
+                            | Belt.Result.Error (e, _j) ->
+                              Js.Promise.resolve (Expect.toContainString "Unknown verification goal" (`Just e))
+                            | _ ->
+                              Js.Promise.resolve (fail "unexpected result")
+                          )
+                      | Belt.Result.Error (e, _j) ->
+                        Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+                    )
+                | Belt.Result.Error (e, _j) ->
+                  Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+              )
+          | Belt.Result.Error (e, _j) ->
+            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+        )
+    )
 
 let () =
   afterAllAsync ~timeout:20000 (fun finish ->
