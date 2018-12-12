@@ -24,8 +24,6 @@ external bufferOff
     -> ([ `data of Node.Buffer.t -> unit] [@bs.string])
     -> Node.string_buffer = "off" [@@bs.send]
 
-type imandraSyntax = Reason | OCaml
-
 type imandraOptions =
   { debug : bool [@bs.optional]
   ; serverCmd : string [@bs.optional]
