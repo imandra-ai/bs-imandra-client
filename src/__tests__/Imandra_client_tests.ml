@@ -5,7 +5,7 @@ let runningImandraProcess = ref None
 let () =
   beforeAllPromise (fun () ->
       let open Imandra_client in
-      Imandra_client.start (imandraOptions ~syntax:"ocaml" ~debug:true ())
+      Imandra_client.start (imandraOptions ~debug:true ())
       |> Js.Promise.then_ (fun ip ->
           runningImandraProcess := Some ip;
           Js.Promise.resolve ()
@@ -77,7 +77,42 @@ let () =
     )
 
 let () =
-  afterAllAsync (fun finish ->
+  testPromise ~timeout:20000 "eval reason" (fun () ->
+      let ip = !runningImandraProcess |> Belt.Option.getExn in
+      Imandra_client.Eval.by_src ip ~syntax:Reason ~src:"let myfn = (x) => x == 3;"
+      |> Js.Promise.then_ (function
+          | Belt.Result.Ok (_, _) ->
+            Js.Promise.resolve (pass)
+          | Belt.Result.Error (e, _j) ->
+            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+        )
+    )
+
+let () =
+  testPromise ~timeout:20000 "verify reason" (fun () ->
+      let ip = !runningImandraProcess |> Belt.Option.getExn in
+      Imandra_client.Eval.by_src ip ~syntax:Reason ~src:"(x) => x == 3;"
+      |> Js.Promise.then_ (function
+          | Belt.Result.Ok (_, _) ->
+            Js.Promise.resolve (pass)
+          | Belt.Result.Error (e, _j) ->
+            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+        )
+    )
+
+let () =
+  testPromise ~timeout:20000 "verify ocaml again" (fun () ->
+      let ip = !runningImandraProcess |> Belt.Option.getExn in
+      Imandra_client.Verify.by_src ip ~src:"fun x -> x = 3"
+      |> Js.Promise.then_ (function
+          | Belt.Result.Ok (_, _) ->
+            Js.Promise.resolve (pass)
+          | Belt.Result.Error (e, _j) ->
+            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+        )
+    )
+
+
       match !runningImandraProcess with
       | Some ip ->
         Imandra_client.stop ip

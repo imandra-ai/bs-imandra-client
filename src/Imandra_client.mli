@@ -1,8 +1,7 @@
 val function_name: 'a -> string
 
 type imandraOptions =
-  { syntax : string
-  ; debug : bool [@bs.optional]
+  { debug : bool [@bs.optional]
   ; serverCmd : string [@bs.optional]
   } [@@bs.deriving abstract]
 
@@ -20,6 +19,10 @@ type 'a with_json =
   ('a * Js.Json.t)
 
 type error = string
+
+type syntax =
+  | OCaml
+  | Reason
 
 module Verify : sig
   type model =
@@ -45,12 +48,12 @@ module Verify : sig
     val verifyResult : Js.Json.t -> verifyResult
   end
 
-  val by_src : imandraProcess -> src:string -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
-  val by_name : imandraProcess -> name:string -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val by_src : ?syntax:syntax -> src:string -> imandraProcess -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val by_name : name:string -> imandraProcess -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
 end
 
 module Eval : sig
-  val by_src : imandraProcess -> src:string -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_src : ?syntax:syntax -> src:string -> imandraProcess -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 
 module Instance : sig
@@ -77,6 +80,6 @@ module Instance : sig
     val instanceResult : Js.Json.t -> instanceResult
   end
 
-  val by_src : imandraProcess -> src:string -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
-  val by_name : imandraProcess -> name:string -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_src : ?syntax:syntax -> src:string -> imandraProcess -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_name : name:string -> imandraProcess -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
 end

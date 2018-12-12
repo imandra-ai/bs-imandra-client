@@ -27,14 +27,12 @@ external bufferOff
 type imandraSyntax = Reason | OCaml
 
 type imandraOptions =
-  { syntax : string
-  ; debug : bool [@bs.optional]
+  { debug : bool [@bs.optional]
   ; serverCmd : string [@bs.optional]
   } [@@bs.deriving abstract]
 
 type imandraOptionsWithDefaults =
-  { syntax : imandraSyntax
-  ; debug : bool
+  { debug : bool
   ; serverCmd : string
   }
 
@@ -46,6 +44,10 @@ type imandraProcess =
 
 type 'a with_json =
   ('a * Js.Json.t)
+
+type syntax =
+  | OCaml
+  | Reason
 
 type error = string
 
@@ -104,8 +106,7 @@ let waitForServer (port : int) : unit Js.Promise.t =
 
 
 let withDefaults (opts : imandraOptions) : imandraOptionsWithDefaults =
-  { syntax = if (opts |. syntaxGet) = "reason" then Reason else OCaml
-  ; debug = (match (opts |. debugGet) with | None -> false | Some d -> d)
+  { debug = (match (opts |. debugGet) with | None -> false | Some d -> d)
   ; serverCmd = (match (opts |. serverCmdGet) with | None -> "imandra-http-server" | Some s -> s)
   }
 
@@ -145,8 +146,8 @@ let start (passedOpts : imandraOptions) : imandraProcess Js.Promise.t =
 
       getPort ()
       |> Js.Promise.then_ (fun port ->
-          let syntaxArg = if opts.syntax = Reason then [|"-reason"|] else [||] in
-          let args = (Array.append [|"--non-interactive"; "-port"; (string_of_int port)|] syntaxArg) in
+          (* Always set reason to load the reason parser. Syntax is specified per-call *)
+          let args = [|"--non-interactive"; "-reason"; "-port"; (string_of_int port)|] in
           let np = spawn opts.serverCmd args in
 
           listenForStartupClose np;
@@ -240,10 +241,14 @@ module Verify = struct
   end
 
 
-  let by_src (p : imandraProcess) ~(src : string) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraProcess) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
+    let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
+      | OCaml -> "ocaml"
+      | Reason -> "reason"
+    in
+    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make ((p |. baseUrlGet) ^ "/verify/by-src"))
@@ -255,7 +260,7 @@ module Verify = struct
         Js.Promise.resolve (error_or Decode.verifyResult json)
       )
 
-  let by_name (p : imandraProcess) ~(name : string) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_name ~(name : string) (p : imandraProcess) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
@@ -275,10 +280,14 @@ module Eval = struct
       ()
   end
 
-  let by_src (p : imandraProcess) ~(src : string) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraProcess) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
+    let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
+      | OCaml -> "ocaml"
+      | Reason -> "reason"
+    in
+    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make ((p |. baseUrlGet) ^ "/eval/by-src"))
@@ -336,10 +345,14 @@ module Instance = struct
       )
   end
 
-  let by_src (p : imandraProcess) ~(src : string) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraProcess) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\" }" in
+    let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
+      | OCaml -> "ocaml"
+      | Reason -> "reason"
+    in
+    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make ((p |. baseUrlGet) ^ "/instance/by-src"))
@@ -351,7 +364,7 @@ module Instance = struct
         Js.Promise.resolve (error_or Decode.instanceResult json)
       )
 
-  let by_name (p : imandraProcess) ~(name : string) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_name ~(name : string) (p : imandraProcess) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
