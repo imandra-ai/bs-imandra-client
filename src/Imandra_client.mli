@@ -34,9 +34,11 @@ type 'a with_json =
 
 type error = string
 
-type syntax =
-  | OCaml
-  | Reason
+module Syntax : sig
+  type t =
+    | OCaml
+    | Reason
+end
 
 module Verify : sig
   type model =
@@ -62,12 +64,12 @@ module Verify : sig
     val verifyResult : Js.Json.t -> verifyResult
   end
 
-  val by_src : ?syntax:syntax -> src:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val by_src : syntax:Syntax.t -> src:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
   val by_name : name:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
 end
 
 module Eval : sig
-  val by_src : ?syntax:syntax -> src:string -> ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_src : syntax:Syntax.t -> src:string -> ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 
 module Instance : sig
@@ -94,7 +96,7 @@ module Instance : sig
     val instanceResult : Js.Json.t -> instanceResult
   end
 
-  val by_src : ?syntax:syntax -> src:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_src : syntax:Syntax.t -> src:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
   val by_name : name:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 

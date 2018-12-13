@@ -78,9 +78,11 @@ end
 type 'a with_json =
   ('a * Js.Json.t)
 
-type syntax =
-  | OCaml
-  | Reason
+module Syntax = struct
+  type t =
+    | OCaml
+    | Reason
+end
 
 type error = string
 
@@ -273,10 +275,10 @@ module Verify = struct
   end
 
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
+    let syntax_str = match syntax with
       | OCaml -> "ocaml"
       | Reason -> "reason"
     in
@@ -312,10 +314,10 @@ module Eval = struct
       ()
   end
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
+    let syntax_str = match syntax with
       | OCaml -> "ocaml"
       | Reason -> "reason"
     in
@@ -377,10 +379,10 @@ module Instance = struct
       )
   end
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
+    let syntax_str = match syntax with
       | OCaml -> "ocaml"
       | Reason -> "reason"
     in
