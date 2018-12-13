@@ -34,10 +34,46 @@ type imandraOptionsWithDefaults =
   ; serverCmd : string
   }
 
-type imandraServerInfo =
-  { port : int
-  ; baseUrl : string
-  } [@@bs.deriving abstract]
+module ServerInfo = struct
+  type t =
+    { port : int
+    ; baseUrl : string
+    }
+
+  module Encode = struct
+    let t t =
+      Js.Dict.fromList [ ("port", Js.Json.number (float_of_int t.port))
+                       ; ("baseUrl", Js.Json.string (t.baseUrl))
+                       ]
+      |> Js.Json.object_
+  end
+
+  module Decode = struct
+    let t json =
+      Json.Decode.(
+        { port = (field "port" int json)
+        ; baseUrl = (field "baseUrl" string json)
+        }
+      )
+
+  end
+
+  let to_file ?(filename=".imandra-server-info") (t : t) =
+    let j_str =
+      Encode.t t
+      |> Js.Json.stringify
+    in
+    Node.Fs.writeFileSync filename j_str `utf8
+
+  let from_file ?(filename=".imandra-server-info") () : t =
+    Node.Fs.readFileSync filename `utf8
+    |> Js.Json.parseExn
+    |> Decode.t
+
+  let cleanup ?(filename=".imandra-server-info") () =
+    Node.Fs.unlinkSync filename;
+
+end
 
 type 'a with_json =
   ('a * Js.Json.t)
@@ -107,7 +143,7 @@ let withDefaults (opts : imandraOptions) : imandraOptionsWithDefaults =
   ; serverCmd = (match (opts |. serverCmdGet) with | None -> "imandra-http-server" | Some s -> s)
   }
 
-let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * imandraServerInfo) Js.Promise.t =
+let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * ServerInfo.t) Js.Promise.t =
 
   let opts = withDefaults passedOpts in
 
@@ -157,7 +193,7 @@ let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * iman
           waitForServer port
           |> Js.Promise.then_ (fun () ->
               unlistenForStartupClose np;
-              resolve (np, imandraServerInfo ~port ~baseUrl:("http://localhost:" ^ (string_of_int port))) [@bs];
+              resolve (np, ServerInfo.{ port = port;  baseUrl=("http://localhost:" ^ (string_of_int port)) }) [@bs];
               Js.Promise.resolve ();
             )
         )
@@ -237,7 +273,7 @@ module Verify = struct
   end
 
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraServerInfo) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
@@ -247,7 +283,7 @@ module Verify = struct
     let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make ((p |. baseUrlGet) ^ "/verify/by-src"))
+      (Fetch.Request.make (p.baseUrl ^ "/verify/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
@@ -256,11 +292,11 @@ module Verify = struct
         Js.Promise.resolve (error_or Decode.verifyResult json)
       )
 
-  let by_name ~(name : string) (p : imandraServerInfo) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_name ~(name : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make ((p |. baseUrlGet) ^ "/verify/by-name"))
+      (Fetch.Request.make (p.baseUrl ^ "/verify/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
@@ -276,7 +312,7 @@ module Eval = struct
       ()
   end
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraServerInfo) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
@@ -286,7 +322,7 @@ module Eval = struct
     let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make ((p |. baseUrlGet) ^ "/eval/by-src"))
+      (Fetch.Request.make (p.baseUrl ^ "/eval/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
@@ -341,7 +377,7 @@ module Instance = struct
       )
   end
 
-  let by_src ?(syntax: syntax option) ~(src : string) (p : imandraServerInfo) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_src ?(syntax: syntax option) ~(src : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let b = Node.Buffer.fromString src in
     let encodedSrc = (bufferToStringWithEncoding b `base64) in
     let syntax_str = match (Belt.Option.getWithDefault syntax OCaml) with
@@ -351,7 +387,7 @@ module Instance = struct
     let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make ((p |. baseUrlGet) ^ "/instance/by-src"))
+      (Fetch.Request.make (p.baseUrl ^ "/instance/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
@@ -360,11 +396,11 @@ module Instance = struct
         Js.Promise.resolve (error_or Decode.instanceResult json)
       )
 
-  let by_name ~(name : string) (p : imandraServerInfo) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+  let by_name ~(name : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
     let req = "{ \"name\": \"" ^ name ^ "\" }" in
     let body = Fetch.BodyInit.make req in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make ((p |. baseUrlGet) ^ "/instance/by-name"))
+      (Fetch.Request.make (p.baseUrl ^ "/instance/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res
@@ -379,9 +415,9 @@ module Decode = struct
     ()
 end
 
-let reset (p : imandraServerInfo) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+let reset (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make ((p |. baseUrlGet) ^ "/reset"))
+      (Fetch.Request.make (p.baseUrl ^ "/reset"))
       (Fetch.RequestInit.make ~method_:Post ())
     |> Js.Promise.then_ (fun res ->
         Fetch.Response.json res

@@ -5,12 +5,27 @@ type imandraOptions =
   ; serverCmd : string [@bs.optional]
   } [@@bs.deriving abstract]
 
-type imandraServerInfo =
-  { port : int
-  ; baseUrl : string
-  } [@@bs.deriving abstract]
+module ServerInfo : sig
+  type t =
+    { port : int
+    ; baseUrl : string
+    }
 
-val start : imandraOptions -> (Node.Child_process.spawnResult * imandraServerInfo) Js.Promise.t
+  module Encode : sig
+    val t : t -> Js.Json.t
+  end
+
+  module Decode : sig
+    val t : Js.Json.t -> t
+  end
+
+  val to_file : ?filename:string -> t -> unit
+  val from_file : ?filename:string -> unit -> t
+  val cleanup : ?filename:string -> unit -> unit
+
+end
+
+val start : imandraOptions -> (Node.Child_process.spawnResult * ServerInfo.t) Js.Promise.t
 
 val stop : Node.Child_process.spawnResult -> unit Js.Promise.t
 
@@ -47,12 +62,12 @@ module Verify : sig
     val verifyResult : Js.Json.t -> verifyResult
   end
 
-  val by_src : ?syntax:syntax -> src:string -> imandraServerInfo -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
-  val by_name : name:string -> imandraServerInfo -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val by_src : ?syntax:syntax -> src:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val by_name : name:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
 end
 
 module Eval : sig
-  val by_src : ?syntax:syntax -> src:string -> imandraServerInfo -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_src : ?syntax:syntax -> src:string -> ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 
 module Instance : sig
@@ -79,8 +94,8 @@ module Instance : sig
     val instanceResult : Js.Json.t -> instanceResult
   end
 
-  val by_src : ?syntax:syntax -> src:string -> imandraServerInfo -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
-  val by_name : name:string -> imandraServerInfo -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_src : ?syntax:syntax -> src:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val by_name : name:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 
-val reset : imandraServerInfo -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
+val reset : ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
