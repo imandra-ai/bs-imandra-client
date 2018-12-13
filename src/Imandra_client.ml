@@ -34,6 +34,44 @@ type imandraOptionsWithDefaults =
   ; serverCmd : string
   }
 
+module Syntax = struct
+  type t =
+    | OCaml
+    | Reason
+end
+
+external bufferToStringWithEncoding : Node.Buffer.t ->
+  ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
+  string = "toString" [@@bs.send]
+
+module Request = struct
+  type src =
+    { syntax : Syntax.t
+    ; src : string
+    }
+
+  type name =
+    { name : string
+    }
+
+  module Encode = struct
+    let src (t : src) : Js.Json.t =
+      let b = Node.Buffer.fromString t.src in
+      let encodedSrc = (bufferToStringWithEncoding b `base64) in
+      Js.Dict.fromList
+        [ ("syntax", Js.Json.string (match t.syntax with | OCaml -> "ocaml" | Reason -> "reason"))
+        ; ("src_base64", Js.Json.string encodedSrc )
+        ]
+      |> Js.Json.object_
+
+    let name (t : name) : Js.Json.t =
+      Js.Dict.fromList
+        [ ("name", Js.Json.string t.name)
+        ]
+      |> Js.Json.object_
+  end
+end
+
 module ServerInfo = struct
   type t =
     { port : int
@@ -77,12 +115,6 @@ end
 
 type 'a with_json =
   ('a * Js.Json.t)
-
-module Syntax = struct
-  type t =
-    | OCaml
-    | Reason
-end
 
 type error = string
 
@@ -216,9 +248,6 @@ let stop (np : Node.Child_process.spawnResult) : unit Js.Promise.t =
     )
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
-external bufferToStringWithEncoding : Node.Buffer.t ->
-  ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
-  string = "toString" [@@bs.send]
 
 let error_or decoder json : ('a with_json, error with_json) Belt.Result.t =
   Json.Decode.(
@@ -276,14 +305,7 @@ module Verify = struct
 
 
   let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let b = Node.Buffer.fromString src in
-    let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let syntax_str = match syntax with
-      | OCaml -> "ocaml"
-      | Reason -> "reason"
-    in
-    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
-    let body = Fetch.BodyInit.make req in
+    let body = Fetch.BodyInit.make ((Request.Encode.src { syntax; src }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/verify/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -295,8 +317,7 @@ module Verify = struct
       )
 
   let by_name ~(name : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let req = "{ \"name\": \"" ^ name ^ "\" }" in
-    let body = Fetch.BodyInit.make req in
+    let body = Fetch.BodyInit.make ((Request.Encode.name { name }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/verify/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -315,14 +336,7 @@ module Eval = struct
   end
 
   let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let b = Node.Buffer.fromString src in
-    let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let syntax_str = match syntax with
-      | OCaml -> "ocaml"
-      | Reason -> "reason"
-    in
-    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
-    let body = Fetch.BodyInit.make req in
+    let body = Fetch.BodyInit.make ((Request.Encode.src { syntax; src }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/eval/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -380,14 +394,7 @@ module Instance = struct
   end
 
   let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let b = Node.Buffer.fromString src in
-    let encodedSrc = (bufferToStringWithEncoding b `base64) in
-    let syntax_str = match syntax with
-      | OCaml -> "ocaml"
-      | Reason -> "reason"
-    in
-    let req = "{ \"src_base64\": \"" ^ encodedSrc ^ "\", \"syntax\": \"" ^ syntax_str ^ "\"}" in
-    let body = Fetch.BodyInit.make req in
+    let body = Fetch.BodyInit.make ((Request.Encode.src { syntax; src }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/instance/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -399,8 +406,7 @@ module Instance = struct
       )
 
   let by_name ~(name : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let req = "{ \"name\": \"" ^ name ^ "\" }" in
-    let body = Fetch.BodyInit.make req in
+    let body = Fetch.BodyInit.make ((Request.Encode.name { name }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/instance/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
