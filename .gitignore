@@ -25,3 +25,7 @@ lib/bs
 .merlin
 .bsb.lock
 *.bs.js
+node_modules/
+_build/
+.imandra_init.log
+*.rej
