@@ -47,29 +47,32 @@ module Syntax : sig
     | Reason
 end
 
-module Verify : sig
-  type model =
-    { language : string
+module Src : sig
+  type t =
+    { syntax : Syntax.t
     ; src : string
     }
+end
 
-  type counterexample =
-    { model : model }
+module Response : sig
+  type instance =
+    { model : Src.t
+    ; type_ : string
+    ; printed : string option
+    }
+end
 
+module Verify : sig
   type unknownResult =
     { reason: string }
 
   type refutedResult =
-    { counterexample: counterexample }
+    { instance: Response.instance }
 
   type verifyResult =
     | Proved
     | Unknown of unknownResult
     | Refuted of refutedResult
-
-  module Decode : sig
-    val verifyResult : Js.Json.t -> verifyResult
-  end
 
   val bySrc : ?instancePrinter:PrinterDetails.t -> syntax:Syntax.t -> src:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
   val byName : ?instancePrinter:PrinterDetails.t -> name:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
@@ -80,28 +83,16 @@ module Eval : sig
 end
 
 module Instance : sig
-  type model =
-    { language : string
-    ; src : string
-    }
-
-  type example =
-    { model : model }
-
   type unknownResult =
     { reason: string }
 
   type satResult =
-    { example: example }
+    { instance: Response.instance }
 
   type instanceResult =
     | Sat of satResult
     | Unknown of unknownResult
     | Unsat
-
-  module Decode : sig
-    val instanceResult : Js.Json.t -> instanceResult
-  end
 
   val bySrc : ?instancePrinter:PrinterDetails.t -> syntax:Syntax.t -> src:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
   val byName : ?instancePrinter:PrinterDetails.t -> name:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t

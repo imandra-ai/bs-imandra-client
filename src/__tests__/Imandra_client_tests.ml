@@ -122,6 +122,29 @@ let () =
         )
     )
 
+let () =
+  let src = {|
+type t = { x : int};;
+let print_t t = (Printf.sprintf "x is %d" t.x);;
+|}
+  in
+  testPromise ~timeout:20000 "print instance" (fun () ->
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      Imandra_client.Eval.bySrc ip ~syntax ~src
+      |> Js.Promise.then_ (function
+          | Belt.Result.Ok (_, _) ->
+            let instancePrinter = Imandra_client.PrinterDetails.{ name = "print_t"; cx_var_name = "a" } in
+            Imandra_client.Instance.bySrc ip ~instancePrinter ~syntax ~src:"fun (a : t) -> a.x + 97 = 100"
+            |> Js.Promise.then_ (function
+                | Belt.Result.Ok (Imandra_client.Instance.Sat { instance }, _) ->
+                  Js.Promise.resolve (Expect.toEqual instance.printed (`Just (Some "x is 3")))
+                | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "instance result not satisifed")
+                | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+              )
+          | Belt.Result.Error (e, _j) ->
+            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+        )
+    )
 
 let () =
   testPromise ~timeout:20000 "reset" (fun () ->

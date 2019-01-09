@@ -51,14 +51,38 @@ module PrinterDetails = struct
     }
 end
 
-module Request = struct
-  type src =
+module Src = struct
+  type t =
     { syntax : Syntax.t
     ; src : string
     }
 
+  module Encode = struct
+    let t (t : t) : Js.Json.t =
+      let b = Node.Buffer.fromString t.src in
+      let encodedSrc = (bufferToStringWithEncoding b `base64) in
+      Js.Dict.fromList
+        [ ("syntax", Js.Json.string (match t.syntax with | OCaml -> "ocaml" | Reason -> "reason"))
+        ; ("src_base64", Js.Json.string encodedSrc )
+        ]
+      |> Js.Json.object_
+  end
+
+  module Decode = struct
+    let t json =
+      Json.Decode.(
+        let s = (field "syntax" string json) in
+        { syntax = Syntax.(match s with "reason" -> Reason | _ -> OCaml)
+        ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
+        }
+      )
+  end
+end
+
+
+module Request = struct
   type reqSrc =
-    { src : src
+    { src : Src.t
     ; instancePrinter : PrinterDetails.t option
     }
 
@@ -73,14 +97,6 @@ module Request = struct
     | Some x -> xs @ [(k, f x)]
 
   module Encode = struct
-    let src (t : src) : Js.Json.t =
-      let b = Node.Buffer.fromString t.src in
-      let encodedSrc = (bufferToStringWithEncoding b `base64) in
-      Js.Dict.fromList
-        [ ("syntax", Js.Json.string (match t.syntax with | OCaml -> "ocaml" | Reason -> "reason"))
-        ; ("src_base64", Js.Json.string encodedSrc )
-        ]
-      |> Js.Json.object_
 
     let printerDetails (t : PrinterDetails.t) : Js.Json.t =
       Js.Dict.fromList
@@ -91,7 +107,7 @@ module Request = struct
 
     let reqSrc (t : reqSrc) : Js.Json.t =
       Js.Dict.fromList
-        ([ ("src", src t.src)
+        ([ ("src", Src.Encode.t t.src)
          ]
          |> append_opt_key "instancePrinter" printerDetails t.instancePrinter
         )
@@ -104,6 +120,24 @@ module Request = struct
          |> append_opt_key "instancePrinter" printerDetails t.instancePrinter
         )
       |> Js.Json.object_
+  end
+end
+
+module Response = struct
+  type instance =
+    { model : Src.t
+    ; type_ : string
+    ; printed : string option
+    }
+
+  module Decode = struct
+    let instance json =
+      Json.Decode.(
+        { model = field "model" Src.Decode.t json
+        ; type_ = field "type" string json
+        ; printed = field "printed" (optional string) json
+        }
+      )
   end
 end
 
@@ -129,7 +163,6 @@ module ServerInfo = struct
         ; baseUrl = (field "baseUrl" string json)
         }
       )
-
   end
 
   let toFile ?(filename=".imandra-server-info") (t : t) =
@@ -294,19 +327,11 @@ let errorOr decoder json : ('a with_json, error with_json) Belt.Result.t =
   )
 
 module Verify = struct
-  type model =
-    { language : string
-    ; src : string
-    }
-
-  type counterexample =
-    { model : model }
-
   type unknownResult =
     { reason: string }
 
   type refutedResult =
-    { counterexample: counterexample }
+    { instance: Response.instance }
 
   type verifyResult =
     | Proved
@@ -314,26 +339,13 @@ module Verify = struct
     | Refuted of refutedResult
 
   module Decode = struct
-    let model json =
-      Json.Decode.(
-        { language = (field "language" string json)
-        ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
-        }
-      )
-
-    let counterexample json =
-      Json.Decode.(
-        { model = field "model" model json
-        }
-      )
-
     let verifyResult json =
       Json.Decode.(
         let r = (field "result" string json) in
         match (field "result" string json) with
         | "proved" -> Proved
         | "unknown" -> Unknown { reason = field "unknown_reason" string json }
-        | "refuted" -> Refuted { counterexample = field "refuted_counterexample" counterexample json }
+        | "refuted" -> Refuted { instance = field "instance" Response.Decode.instance json }
         | _ -> failwith (Printf.sprintf "unknown verify result: %s" r)
       )
   end
@@ -384,19 +396,13 @@ module Eval = struct
 end
 
 module Instance = struct
-  type model =
-    { language : string
-    ; src : string
+  type unknownResult =
+    { reason: string
     }
 
-  type example =
-    { model : model }
-
-  type unknownResult =
-    { reason: string }
-
   type satResult =
-    { example: example }
+    { instance : Response.instance
+    }
 
   type instanceResult =
     | Sat of satResult
@@ -404,26 +410,13 @@ module Instance = struct
     | Unsat
 
   module Decode = struct
-    let model json =
-      Json.Decode.(
-        { language = (field "language" string json)
-        ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
-        }
-      )
-
-    let example json =
-      Json.Decode.(
-        { model = field "model" model json
-        }
-      )
-
     let instanceResult json =
       Json.Decode.(
         let r = (field "result" string json) in
         match (field "result" string json) with
         | "unsat" -> Unsat
         | "unknown" -> Unknown { reason = field "unknown_reason" string json }
-        | "sat" -> Sat { example = field "sat_example" example json }
+        | "sat" -> Sat { instance = field "instance" Response.Decode.instance json }
         | _ -> failwith (Printf.sprintf "unknown verify result: %s" r)
       )
   end
