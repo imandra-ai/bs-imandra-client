@@ -15,8 +15,8 @@ let () =
       |> Js.Promise.then_ (fun (np, isi) ->
           runningNodeProcess := Some np;
           (* check serialisation works *)
-          Imandra_client.ServerInfo.to_file isi;
-          let from_disk = Imandra_client.ServerInfo.from_file () in
+          Imandra_client.ServerInfo.toFile isi;
+          let from_disk = Imandra_client.ServerInfo.fromFile () in
           runningImandraServerInfo := Some from_disk;
           Js.Promise.resolve ()
         )
@@ -29,7 +29,7 @@ let () =
 let () =
   testPromise ~timeout:20000 "verify refuted" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Verify.by_src ip ~syntax ~src:"fun x -> x = 3"
+      Imandra_client.Verify.bySrc ip ~syntax ~src:"fun x -> x = 3"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (Imandra_client.Verify.Refuted _, _) -> Js.Promise.resolve pass
           | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
@@ -40,10 +40,10 @@ let () =
 let () =
   testPromise ~timeout:20000 "verify by name proved" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Eval.by_src ip ~syntax ~src:"let rev_rev x = 3 = 3"
+      Imandra_client.Eval.bySrc ip ~syntax ~src:"let rev_rev x = 3 = 3"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok _ ->
-            Imandra_client.Verify.by_name ip ~name:"rev_rev"
+            Imandra_client.Verify.byName ip ~name:"rev_rev"
             |> Js.Promise.then_ (function
                 | Belt.Result.Ok (Imandra_client.Verify.Proved, _) -> Js.Promise.resolve pass
                 | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
@@ -56,7 +56,7 @@ let () =
 let () =
   testPromise ~timeout:20000 "instance" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Instance.by_src ip ~syntax ~src:"fun x -> List.length x > 4"
+      Imandra_client.Instance.bySrc ip ~syntax ~src:"fun x -> List.length x > 4"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (Imandra_client.Instance.Sat _, _) -> Js.Promise.resolve pass
           | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "instance result not satisifed")
@@ -67,7 +67,7 @@ let () =
 let () =
   testPromise ~timeout:20000 "eval failure" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Eval.by_src ip ~syntax ~src:"garbage"
+      Imandra_client.Eval.bySrc ip ~syntax ~src:"garbage"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "unexpected success")
           | Belt.Result.Error (e, _) ->
@@ -78,7 +78,7 @@ let () =
 let () =
   testPromise ~timeout:20000 "eval failure for mod_use" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Eval.by_src ip ~syntax ~src:"#mod_use \"lol_no_file.iml\""
+      Imandra_client.Eval.bySrc ip ~syntax ~src:"#mod_use \"lol_no_file.iml\""
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "unexpected success")
           | Belt.Result.Error (e, _j) ->
@@ -89,7 +89,7 @@ let () =
 let () =
   testPromise ~timeout:20000 "eval reason" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Eval.by_src ip ~syntax:Reason ~src:"let myfn = (x) => x == 3;"
+      Imandra_client.Eval.bySrc ip ~syntax:Reason ~src:"let myfn = (x) => x == 3;"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) ->
             Js.Promise.resolve (pass)
@@ -101,7 +101,7 @@ let () =
 let () =
   testPromise ~timeout:20000 "verify reason" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Eval.by_src ip ~syntax:Reason ~src:"(x) => x == 3;"
+      Imandra_client.Eval.bySrc ip ~syntax:Reason ~src:"(x) => x == 3;"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) ->
             Js.Promise.resolve (pass)
@@ -113,7 +113,7 @@ let () =
 let () =
   testPromise ~timeout:20000 "verify ocaml again" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Verify.by_src ip ~syntax ~src:"fun x -> x = 3"
+      Imandra_client.Verify.bySrc ip ~syntax ~src:"fun x -> x = 3"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) ->
             Js.Promise.resolve (pass)
@@ -126,16 +126,16 @@ let () =
 let () =
   testPromise ~timeout:20000 "reset" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
-      Imandra_client.Eval.by_src ip ~syntax ~src:"let to_be_reset x = x = 3"
+      Imandra_client.Eval.bySrc ip ~syntax ~src:"let to_be_reset x = x = 3"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) ->
-            Imandra_client.Verify.by_name ip ~name:"to_be_reset"
+            Imandra_client.Verify.byName ip ~name:"to_be_reset"
             |> Js.Promise.then_ (function
                 | Belt.Result.Ok (_, _) ->
                   Imandra_client.reset ip
                   |> Js.Promise.then_ (function
                       | Belt.Result.Ok (_, _) ->
-                        Imandra_client.Verify.by_name ip ~name:"to_be_reset"
+                        Imandra_client.Verify.byName ip ~name:"to_be_reset"
                         |> Js.Promise.then_ (function
                             | Belt.Result.Error (e, _j) ->
                               Js.Promise.resolve (Expect.toContainString "Unknown verification goal" (`Just e))

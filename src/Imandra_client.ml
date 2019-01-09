@@ -44,15 +44,33 @@ external bufferToStringWithEncoding : Node.Buffer.t ->
   ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
   string = "toString" [@@bs.send]
 
+module PrinterDetails = struct
+  type t =
+    { name : string
+    ; cx_var_name : string
+    }
+end
+
 module Request = struct
   type src =
     { syntax : Syntax.t
     ; src : string
     }
 
-  type name =
-    { name : string
+  type reqSrc =
+    { src : src
+    ; instancePrinter : PrinterDetails.t option
     }
+
+  type reqName =
+    { name : string
+    ; instancePrinter : PrinterDetails.t option
+    }
+
+  let append_opt_key k f opt xs =
+    match opt with
+    | None -> xs
+    | Some x -> xs @ [(k, f x)]
 
   module Encode = struct
     let src (t : src) : Js.Json.t =
@@ -64,10 +82,27 @@ module Request = struct
         ]
       |> Js.Json.object_
 
-    let name (t : name) : Js.Json.t =
+    let printerDetails (t : PrinterDetails.t) : Js.Json.t =
       Js.Dict.fromList
         [ ("name", Js.Json.string t.name)
+        ; ("cx_var_name", Js.Json.string t.cx_var_name)
         ]
+      |> Js.Json.object_
+
+    let reqSrc (t : reqSrc) : Js.Json.t =
+      Js.Dict.fromList
+        ([ ("src", src t.src)
+         ]
+         |> append_opt_key "instancePrinter" printerDetails t.instancePrinter
+        )
+      |> Js.Json.object_
+
+    let reqName (t : reqName) : Js.Json.t =
+      Js.Dict.fromList
+        ([ ("name", Js.Json.string t.name)
+         ]
+         |> append_opt_key "instancePrinter" printerDetails t.instancePrinter
+        )
       |> Js.Json.object_
   end
 end
@@ -80,9 +115,10 @@ module ServerInfo = struct
 
   module Encode = struct
     let t t =
-      Js.Dict.fromList [ ("port", Js.Json.number (float_of_int t.port))
-                       ; ("baseUrl", Js.Json.string (t.baseUrl))
-                       ]
+      Js.Dict.fromList
+        [ ("port", Js.Json.number (float_of_int t.port))
+        ; ("baseUrl", Js.Json.string (t.baseUrl))
+        ]
       |> Js.Json.object_
   end
 
@@ -96,14 +132,14 @@ module ServerInfo = struct
 
   end
 
-  let to_file ?(filename=".imandra-server-info") (t : t) =
+  let toFile ?(filename=".imandra-server-info") (t : t) =
     let j_str =
       Encode.t t
       |> Js.Json.stringify
     in
     Node.Fs.writeFileSync filename j_str `utf8
 
-  let from_file ?(filename=".imandra-server-info") () : t =
+  let fromFile ?(filename=".imandra-server-info") () : t =
     Node.Fs.readFileSync filename `utf8
     |> Js.Json.parseExn
     |> Decode.t
@@ -170,7 +206,6 @@ let waitForServer (port : int) : unit Js.Promise.t =
   |> Js.Promise.then_ (fun _ ->
       Js.Promise.resolve ()
     )
-
 
 let withDefaults (opts : imandraOptions) : imandraOptionsWithDefaults =
   { debug = (match (opts |. debugGet) with | None -> false | Some d -> d)
@@ -249,7 +284,7 @@ let stop (np : Node.Child_process.spawnResult) : unit Js.Promise.t =
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
 
-let error_or decoder json : ('a with_json, error with_json) Belt.Result.t =
+let errorOr decoder json : ('a with_json, error with_json) Belt.Result.t =
   Json.Decode.(
     match optional (field "error" string) json with
     | Some error ->
@@ -304,8 +339,8 @@ module Verify = struct
   end
 
 
-  let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.src { syntax; src }) |> Js.Json.stringify) in
+  let bySrc ?(instancePrinter: PrinterDetails.t option) ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { src = { syntax; src }; instancePrinter }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/verify/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -313,11 +348,11 @@ module Verify = struct
         Fetch.Response.json res
       )
     |> Js.Promise.then_ (fun json ->
-        Js.Promise.resolve (error_or Decode.verifyResult json)
+        Js.Promise.resolve (errorOr Decode.verifyResult json)
       )
 
-  let by_name ~(name : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.name { name }) |> Js.Json.stringify) in
+  let byName ?(instancePrinter: PrinterDetails.t option) ~(name : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+    let body = Fetch.BodyInit.make ((Request.Encode.reqName { name; instancePrinter }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/verify/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -325,7 +360,7 @@ module Verify = struct
         Fetch.Response.json res
       )
     |> Js.Promise.then_ (fun json ->
-        Js.Promise.resolve (error_or Decode.verifyResult json)
+        Js.Promise.resolve (errorOr Decode.verifyResult json)
       )
 end
 
@@ -335,8 +370,8 @@ module Eval = struct
       ()
   end
 
-  let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.src { syntax; src }) |> Js.Json.stringify) in
+  let bySrc ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
+    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { src = { syntax; src }; instancePrinter = None }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/eval/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -344,7 +379,7 @@ module Eval = struct
         Fetch.Response.json res
       )
     |> Js.Promise.then_ (fun json ->
-        Js.Promise.resolve (error_or Decode.evalResult json)
+        Js.Promise.resolve (errorOr Decode.evalResult json)
       )
 end
 
@@ -393,8 +428,8 @@ module Instance = struct
       )
   end
 
-  let by_src ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.src { syntax; src }) |> Js.Json.stringify) in
+  let bySrc ?(instancePrinter: PrinterDetails.t option) ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { src = {syntax; src}; instancePrinter }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/instance/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -402,11 +437,11 @@ module Instance = struct
         Fetch.Response.json res
       )
     |> Js.Promise.then_ (fun json ->
-        Js.Promise.resolve (error_or Decode.instanceResult json)
+        Js.Promise.resolve (errorOr Decode.instanceResult json)
       )
 
-  let by_name ~(name : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.name { name }) |> Js.Json.stringify) in
+  let byName ?(instancePrinter: PrinterDetails.t option) ~(name : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
+    let body = Fetch.BodyInit.make ((Request.Encode.reqName { name; instancePrinter }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/instance/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -414,7 +449,7 @@ module Instance = struct
         Fetch.Response.json res
       )
     |> Js.Promise.then_ (fun json ->
-        Js.Promise.resolve (error_or Decode.instanceResult json)
+        Js.Promise.resolve (errorOr Decode.instanceResult json)
       )
 end
 
@@ -431,5 +466,5 @@ let reset (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t J
         Fetch.Response.json res
       )
     |> Js.Promise.then_ (fun json ->
-        Js.Promise.resolve (error_or Decode.resetResult json)
+        Js.Promise.resolve (errorOr Decode.resetResult json)
       )

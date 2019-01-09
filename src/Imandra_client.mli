@@ -5,6 +5,13 @@ type imandraOptions =
   ; serverCmd : string [@bs.optional]
   } [@@bs.deriving abstract]
 
+module PrinterDetails : sig
+  type t =
+    { name : string
+    ; cx_var_name : string
+    }
+end
+
 module ServerInfo : sig
   type t =
     { port : int
@@ -19,8 +26,8 @@ module ServerInfo : sig
     val t : Js.Json.t -> t
   end
 
-  val to_file : ?filename:string -> t -> unit
-  val from_file : ?filename:string -> unit -> t
+  val toFile : ?filename:string -> t -> unit
+  val fromFile : ?filename:string -> unit -> t
   val cleanup : ?filename:string -> unit -> unit
 
 end
@@ -64,12 +71,12 @@ module Verify : sig
     val verifyResult : Js.Json.t -> verifyResult
   end
 
-  val by_src : syntax:Syntax.t -> src:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
-  val by_name : name:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val bySrc : ?instancePrinter:PrinterDetails.t -> syntax:Syntax.t -> src:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val byName : ?instancePrinter:PrinterDetails.t -> name:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
 end
 
 module Eval : sig
-  val by_src : syntax:Syntax.t -> src:string -> ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
+  val bySrc : syntax:Syntax.t -> src:string -> ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 
 module Instance : sig
@@ -96,8 +103,8 @@ module Instance : sig
     val instanceResult : Js.Json.t -> instanceResult
   end
 
-  val by_src : syntax:Syntax.t -> src:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
-  val by_name : name:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val bySrc : ?instancePrinter:PrinterDetails.t -> syntax:Syntax.t -> src:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val byName : ?instancePrinter:PrinterDetails.t -> name:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
 end
 
 val reset : ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
