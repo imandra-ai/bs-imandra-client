@@ -10,7 +10,7 @@ let () =
       let open Imandra_client in
       Imandra_client.start
         (imandraOptions
-           ~serverCmd:"imandra-http-server-dev"
+           ~serverCmd:"/Users/dave/dev/ai/imandra_network/script/imandra-http-server-local-dev"
            ~debug:true ())
       |> Js.Promise.then_ (fun (np, isi) ->
           runningNodeProcess := Some np;
@@ -123,18 +123,15 @@ let () =
     )
 
 let () =
-  let src = {|
-type t = { x : int};;
-let print_t t = (Printf.sprintf "x is %d" t.x);;
-|}
-  in
+  let src = {| type t = { x : Z.t };; let print_t a = (Printf.sprintf "x is %s" (Z.to_string a.x)) [@@program] |} in
   testPromise ~timeout:20000 "print instance" (fun () ->
       let ip = !runningImandraServerInfo |> Belt.Option.getExn in
       Imandra_client.Eval.bySrc ip ~syntax ~src
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (_, _) ->
             let instancePrinter = Imandra_client.PrinterDetails.{ name = "print_t"; cx_var_name = "a" } in
-            Imandra_client.Instance.bySrc ip ~instancePrinter ~syntax ~src:"fun (a : t) -> a.x + 97 = 100"
+            print_endline instancePrinter.name;
+            Imandra_client.Instance.bySrc ip ~instancePrinter ~syntax ~src:"fun a -> a.x + 97 = 100"
             |> Js.Promise.then_ (function
                 | Belt.Result.Ok (Imandra_client.Instance.Sat { instance }, _) ->
                   Js.Promise.resolve (Expect.toEqual instance.printed (`Just (Some "x is 3")))

@@ -49,6 +49,16 @@ module PrinterDetails = struct
     { name : string
     ; cx_var_name : string
     }
+
+  module Encode = struct
+    let t (t : t) : Js.Json.t =
+      Js.Dict.fromList
+        [ ("name", Js.Json.string t.name)
+        ; ("cx_var_name", Js.Json.string t.cx_var_name)
+        ]
+      |> Js.Json.object_
+
+  end
 end
 
 module Src = struct
@@ -98,18 +108,11 @@ module Request = struct
 
   module Encode = struct
 
-    let printerDetails (t : PrinterDetails.t) : Js.Json.t =
-      Js.Dict.fromList
-        [ ("name", Js.Json.string t.name)
-        ; ("cx_var_name", Js.Json.string t.cx_var_name)
-        ]
-      |> Js.Json.object_
-
     let reqSrc (t : reqSrc) : Js.Json.t =
       Js.Dict.fromList
         ([ ("src", Src.Encode.t t.src)
          ]
-         |> append_opt_key "instancePrinter" printerDetails t.instancePrinter
+         |> append_opt_key "instance_printer" PrinterDetails.Encode.t t.instancePrinter
         )
       |> Js.Json.object_
 
@@ -117,7 +120,7 @@ module Request = struct
       Js.Dict.fromList
         ([ ("name", Js.Json.string t.name)
          ]
-         |> append_opt_key "instancePrinter" printerDetails t.instancePrinter
+         |> append_opt_key "instance_printer" PrinterDetails.Encode.t t.instancePrinter
         )
       |> Js.Json.object_
   end
@@ -282,7 +285,7 @@ let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * Serv
       getPort ()
       |> Js.Promise.then_ (fun port ->
           (* Always set reason to load the reason parser. Syntax is specified per-call *)
-          let args = [|"--non-interactive"; "-reason"; "-port"; (string_of_int port)|] in
+          let args = [|"-reason"; "-port"; (string_of_int port)|] in
           let np = spawn opts.serverCmd args in
 
           listenForStartupClose np;
