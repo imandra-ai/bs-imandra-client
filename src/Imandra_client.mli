@@ -47,7 +47,7 @@ module Syntax : sig
     | Reason
 end
 
-module Src : sig
+module Model : sig
   type t =
     { syntax : Syntax.t
     ; src : string
@@ -56,7 +56,7 @@ end
 
 module Response : sig
   type instance =
-    { model : Src.t
+    { model : Model.t
     ; type_ : string
     ; printed : string option
     }
@@ -64,7 +64,7 @@ end
 
 module Verify : sig
   type unknownResult =
-    { reason: string }
+    { reason : string }
 
   type refutedResult =
     { instance: Response.instance }

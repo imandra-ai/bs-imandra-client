@@ -61,22 +61,11 @@ module PrinterDetails = struct
   end
 end
 
-module Src = struct
+module Model = struct
   type t =
     { syntax : Syntax.t
     ; src : string
     }
-
-  module Encode = struct
-    let t (t : t) : Js.Json.t =
-      let b = Node.Buffer.fromString t.src in
-      let encodedSrc = (bufferToStringWithEncoding b `base64) in
-      Js.Dict.fromList
-        [ ("syntax", Js.Json.string (match t.syntax with | OCaml -> "ocaml" | Reason -> "reason"))
-        ; ("src_base64", Js.Json.string encodedSrc )
-        ]
-      |> Js.Json.object_
-  end
 
   module Decode = struct
     let t json =
@@ -92,8 +81,9 @@ end
 
 module Request = struct
   type reqSrc =
-    { src : Src.t
-    ; instancePrinter : PrinterDetails.t option
+    { instancePrinter : PrinterDetails.t option
+    ; syntax : Syntax.t
+    ; src : string
     }
 
   type reqName =
@@ -109,8 +99,11 @@ module Request = struct
   module Encode = struct
 
     let reqSrc (t : reqSrc) : Js.Json.t =
+      let b = Node.Buffer.fromString t.src in
+      let encodedSrc = (bufferToStringWithEncoding b `base64) in
       Js.Dict.fromList
-        ([ ("src", Src.Encode.t t.src)
+        ([ ("src_base64", Js.Json.string encodedSrc)
+         ; ("syntax", Js.Json.string (match t.syntax with | OCaml -> "ocaml" | Reason -> "reason") )
          ]
          |> append_opt_key "instance_printer" PrinterDetails.Encode.t t.instancePrinter
         )
@@ -128,7 +121,7 @@ end
 
 module Response = struct
   type instance =
-    { model : Src.t
+    { model : Model.t
     ; type_ : string
     ; printed : string option
     }
@@ -136,7 +129,7 @@ module Response = struct
   module Decode = struct
     let instance json =
       Json.Decode.(
-        { model = field "model" Src.Decode.t json
+        { model = field "model" Model.Decode.t json
         ; type_ = field "type" string json
         ; printed = field "printed" (optional string) json
         }
@@ -355,7 +348,7 @@ module Verify = struct
 
 
   let bySrc ?(instancePrinter: PrinterDetails.t option) ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (verifyResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { src = { syntax; src }; instancePrinter }) |> Js.Json.stringify) in
+    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { syntax; src ; instancePrinter }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/verify/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -386,7 +379,7 @@ module Eval = struct
   end
 
   let bySrc ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (unit with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { src = { syntax; src }; instancePrinter = None }) |> Js.Json.stringify) in
+    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { syntax; src ; instancePrinter = None }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/eval/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
@@ -425,7 +418,7 @@ module Instance = struct
   end
 
   let bySrc ?(instancePrinter: PrinterDetails.t option) ~(syntax: Syntax.t) ~(src : string) (p : ServerInfo.t) : (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t =
-    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { src = {syntax; src}; instancePrinter }) |> Js.Json.stringify) in
+    let body = Fetch.BodyInit.make ((Request.Encode.reqSrc { syntax; src; instancePrinter }) |> Js.Json.stringify) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/instance/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
