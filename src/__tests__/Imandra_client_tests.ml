@@ -10,7 +10,6 @@ let () =
       let open Imandra_client in
       Imandra_client.start
         (imandraOptions
-           ~serverCmd:"/Users/dave/dev/ai/imandra_network/script/imandra-http-server-local-dev"
            ~debug:true ())
       |> Js.Promise.then_ (fun (np, isi) ->
           runningNodeProcess := Some np;
