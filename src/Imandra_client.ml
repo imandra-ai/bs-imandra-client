@@ -278,7 +278,7 @@ let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * Serv
       getPort ()
       |> Js.Promise.then_ (fun port ->
           (* Always set reason to load the reason parser. Syntax is specified per-call *)
-          let args = [|"-reason"; "-port"; (string_of_int port)|] in
+          let args = [|"--non-interactive"; "-reason"; "-port"; (string_of_int port)|] in
           let np = spawn opts.serverCmd args in
 
           listenForStartupClose np;
