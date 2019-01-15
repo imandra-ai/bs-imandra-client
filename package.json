@@ -20,5 +20,8 @@
   "devDependencies": {
     "@glennsl/bs-jest": "^0.4.5",
     "jest": "^23.6.0"
+  },
+  "browser": {
+    "fs": false
   }
 }
