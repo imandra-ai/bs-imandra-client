@@ -4,8 +4,9 @@
   "description": "",
   "main": "src/Imandra_client.bs.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "bsb -make-world"
+    "test": "jest -i",
+    "build": "bsb -make-world",
+    "watch": "bsb -make-world -w"
   },
   "author": "",
   "license": "ISC",
