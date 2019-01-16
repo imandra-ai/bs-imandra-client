@@ -90,23 +90,26 @@ module Response = struct
     }
 
   type with_instance =
-    { result : string
-    ; instance : instance
-    }
-
-  type base =
-    { result : string
+    { instance : instance
     }
 
   type with_unknown_reason =
-    { result : string
-    ; unknown_reason : string
+    { unknown_reason : string
     }
 
   type error =
     { error : string }
-end
 
+  type instance_result =
+    | Unsat
+    | Sat of with_instance
+    | Unknown of with_unknown_reason
+
+  type verify_result =
+    | Verified
+    | Refuted of with_instance
+    | Unknown of with_unknown_reason
+end
 
 module Decoders(D: Decoders.Decode.S)(E: Decoders.Encode.S) = struct
   module Common = struct
@@ -175,8 +178,8 @@ module Decoders(D: Decoders.Decode.S)(E: Decoders.Encode.S) = struct
 
           let t : t encoder = function
             | Default ->  obj [("type", string "default")]
-            | Functional x -> obj [("type", string "functional"); ]list value [ string "functional"; functional x ]
-            | Structural x -> list value [ string "structural"; structural x ]
+            | Functional x -> obj [("type", string "functional"); ("body", functional x)]
+            | Structural x -> obj [("type", string "structural"); ("body", structural x)]
         end
       end
 
@@ -187,18 +190,18 @@ module Decoders(D: Decoders.Decode.S)(E: Decoders.Encode.S) = struct
           open D
           let unroll =
             (maybe (field "steps" int)) >>= fun steps ->
-            succeed (Unroll { steps })
+            succeed { steps }
 
           let ext_solver =
             field "name" string >>= fun name ->
-            succeed (Ext_solver { name })
+            succeed { name }
 
           let t : t decoder =
-            D.index 0 string >>= function
-            | "unroll" -> (D.index 1 unroll)
-            | "ext_solver" -> (D.index 1 ext_solver)
+            (field "type" string) >>= function
+            | "unroll" -> (field "body" unroll) >|= (fun x -> Unroll x)
+            | "ext_solver" -> (field "body" ext_solver) >|= (fun x -> Ext_solver x)
             | "auto" -> succeed Auto
-            | "induct" -> (D.index 1 (Induct.Decode.t >|= fun t -> Induct t))
+            | "induct" -> (field "body" Induct.Decode.t) >|= (fun t -> Induct t)
             | _ -> fail "Expected 'unroll', 'ext_solver', 'auto' or 'induct'"
         end
 
@@ -212,10 +215,10 @@ module Decoders(D: Decoders.Decode.S)(E: Decoders.Encode.S) = struct
             obj [("name", string x.name)]
 
           let t : t encoder = function
-            | Unroll x -> list value [ string "unroll"; unroll x ]
-            | Ext_solver x -> list value [ string "ext_solver"; ext_solver x ]
-            | Auto -> list value [ string "auto" ]
-            | Induct x -> list value [ string "induct"; Induct.Encode.t x ]
+            | Unroll x -> obj [("type", string "unroll"); ("body", unroll x)]
+            | Ext_solver x -> obj [("type", string "ext_solver"); ("body", ext_solver x)]
+            | Auto -> obj [("type", string "auto")]
+            | Induct x -> obj [("type", string "auto"); ("body", Induct.Encode.t x)]
         end
       end
 
@@ -324,22 +327,30 @@ module Decoders(D: Decoders.Decode.S)(E: Decoders.Encode.S) = struct
         succeed { model; type_; printed }
 
       let with_instance : with_instance decoder =
-        (field "result" string) >>= fun result ->
         (field "instance" instance) >>= fun instance ->
-        succeed { result; instance }
-
-      let base : base decoder =
-        (field "result" string) >>= fun result ->
-        succeed { result }
+        succeed { instance }
 
       let with_unknown_reason : with_unknown_reason decoder =
-        (field "result" string) >>= fun result ->
         (field "unknown_reason" string) >>= fun unknown_reason ->
-        succeed { result; unknown_reason }
+        succeed { unknown_reason }
 
       let error : my_error decoder =
         (field "error" string) >>= fun e ->
         succeed { error = e }
+
+      let verify_result : verify_result decoder =
+        (field "type" string) >>= function
+        | "verified" -> succeed Verified
+        | "refuted" -> (field "body" with_instance) >|= (fun x -> Refuted x)
+        | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> Unknown x)
+        | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
+
+      let instance_result : instance_result decoder =
+        (field "type" string) >>= function
+        | "unsat" -> succeed Unsat
+        | "sat" -> (field "body" with_instance) >|= (fun x -> Sat x)
+        | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> Unknown x)
+        | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
     end
 
     module Encode = struct
@@ -356,21 +367,25 @@ module Decoders(D: Decoders.Decode.S)(E: Decoders.Encode.S) = struct
              |> append_opt_key "printed" string x.printed)
 
       let with_instance (x : with_instance) =
-        obj [ ("result", string x.result)
-            ; ("instance", instance x.instance )
-            ]
-
-      let base (x : base) =
-        obj [ ("result", string x.result)
+        obj [ ("instance", instance x.instance )
             ]
 
       let with_unknown_reason (x : with_unknown_reason) =
-        obj [ ("result", string x.result)
-            ; ("unknown_reason", string x.unknown_reason)
+        obj [ ("unknown_reason", string x.unknown_reason)
             ]
 
       let error_response (x : error) =
         obj [ ("error", string x.error) ]
+
+      let verify_result : verify_result encoder  = function
+        | Verified -> obj [ ("type", string "verified") ]
+        | Refuted x -> obj [ ("type", string "refuted"); ("body", with_instance x) ]
+        | Unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
+
+      let instance_result : instance_result encoder = function
+        | Unsat -> obj [ ("type", string "unsat") ]
+        | Sat x -> obj [ ("type", string "sat"); ("body", with_instance x) ]
+        | Unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
     end
   end
 end
