@@ -106,7 +106,7 @@ module Response = struct
     | I_unknown of with_unknown_reason
 
   type verify_result =
-    | V_verified
+    | V_proved
     | V_refuted of with_instance
     | V_unknown of with_unknown_reason
 end
@@ -249,7 +249,7 @@ module Decoders(D: Decoders.Decode.S) = struct
 
     let verify_result : verify_result decoder =
       (field "type" string) >>= function
-      | "verified" -> succeed V_verified
+      | "proved" -> succeed V_proved
       | "refuted" -> (field "body" with_instance) >|= (fun x -> V_refuted x)
       | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> V_unknown x)
       | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
@@ -378,7 +378,7 @@ module Encoders(E: D.Encode.S) = struct
       obj [ ("error", string x.error) ]
 
     let verify_result : verify_result encoder  = function
-      | V_verified -> obj [ ("type", string "verified") ]
+      | V_proved -> obj [ ("type", string "proved") ]
       | V_refuted x -> obj [ ("type", string "refuted"); ("body", with_instance x) ]
       | V_unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
 
