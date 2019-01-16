@@ -2,6 +2,8 @@
 external spawn : string -> string array -> Node.Child_process.spawnResult = "" [@@bs.module "child_process"]
 external getPort : unit -> int Js.Promise.t = "getPortPromise" [@@bs.module "portfinder"]
 
+module Api = Api.Types(Decoders_bs.Decode)(Decoders_bs.Encode)
+
 let function_name = [%raw fun f -> "{return f.name}"]
 
 external spawnOn
@@ -34,6 +36,50 @@ type imandraOptionsWithDefaults =
   ; serverCmd : string
   }
 
+module ServerInfo = struct
+  type t =
+    { port : int
+    ; baseUrl : string
+    }
+
+  module Encode = struct
+    let t t =
+      Js.Dict.fromList
+        [ ("port", Js.Json.number (float_of_int t.port))
+        ; ("baseUrl", Js.Json.string (t.baseUrl))
+        ]
+      |> Js.Json.object_
+  end
+
+  module Decode = struct
+    let t json =
+      Json.Decode.(
+        { port = (field "port" int json)
+        ; baseUrl = (field "baseUrl" string json)
+        }
+      )
+  end
+
+  let toFile ?(filename=".imandra-server-info") (t : t) =
+    let j_str =
+      Encode.t t
+      |> Js.Json.stringify
+    in
+    Node.Fs.writeFileSync filename j_str `utf8
+
+  let fromFile ?(filename=".imandra-server-info") () : t =
+    Node.Fs.readFileSync filename `utf8
+    |> Js.Json.parseExn
+    |> Decode.t
+
+  let cleanup ?(filename=".imandra-server-info") () =
+    Node.Fs.unlinkSync filename;
+
+end
+
+module PrinterDetails = struct
+end
+
 module Syntax = struct
   type t =
     | OCaml
@@ -44,40 +90,9 @@ external bufferToStringWithEncoding : Node.Buffer.t ->
   ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
   string = "toString" [@@bs.send]
 
-module PrinterDetails = struct
-  type t =
-    { name : string
-    ; cx_var_name : string
-    }
-
-  module Encode = struct
-    let t (t : t) : Js.Json.t =
-      Js.Dict.fromList
-        [ ("name", Js.Json.string t.name)
-        ; ("cx_var_name", Js.Json.string t.cx_var_name)
-        ]
-      |> Js.Json.object_
-
-  end
-end
-
-module Model = struct
-  type t =
-    { syntax : Syntax.t
-    ; src : string
-    }
-
-  module Decode = struct
-    let t json =
-      Json.Decode.(
-        let s = (field "syntax" string json) in
-        { syntax = Syntax.(match s with "reason" -> Reason | _ -> OCaml)
-        ; src = Node.Buffer.fromStringWithEncoding (field "src_base64" string json) `base64 |> Node.Buffer.toString
-        }
-      )
-  end
-end
-
+let to_base64 (s : string) =
+  let b = Node.Buffer.fromString s in
+  (bufferToStringWithEncoding b `base64)
 
 module Request = struct
   type reqSrc =
@@ -135,47 +150,6 @@ module Response = struct
         }
       )
   end
-end
-
-module ServerInfo = struct
-  type t =
-    { port : int
-    ; baseUrl : string
-    }
-
-  module Encode = struct
-    let t t =
-      Js.Dict.fromList
-        [ ("port", Js.Json.number (float_of_int t.port))
-        ; ("baseUrl", Js.Json.string (t.baseUrl))
-        ]
-      |> Js.Json.object_
-  end
-
-  module Decode = struct
-    let t json =
-      Json.Decode.(
-        { port = (field "port" int json)
-        ; baseUrl = (field "baseUrl" string json)
-        }
-      )
-  end
-
-  let toFile ?(filename=".imandra-server-info") (t : t) =
-    let j_str =
-      Encode.t t
-      |> Js.Json.stringify
-    in
-    Node.Fs.writeFileSync filename j_str `utf8
-
-  let fromFile ?(filename=".imandra-server-info") () : t =
-    Node.Fs.readFileSync filename `utf8
-    |> Js.Json.parseExn
-    |> Decode.t
-
-  let cleanup ?(filename=".imandra-server-info") () =
-    Node.Fs.unlinkSync filename;
-
 end
 
 type 'a with_json =

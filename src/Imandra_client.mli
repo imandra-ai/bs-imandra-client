@@ -5,13 +5,6 @@ type imandraOptions =
   ; serverCmd : string [@bs.optional]
   } [@@bs.deriving abstract]
 
-module PrinterDetails : sig
-  type t =
-    { name : string
-    ; cx_var_name : string
-    }
-end
-
 module ServerInfo : sig
   type t =
     { port : int
@@ -41,24 +34,10 @@ type 'a with_json =
 
 type error = string
 
-module Syntax : sig
+module PrinterDetails : sig
   type t =
-    | OCaml
-    | Reason
-end
-
-module Model : sig
-  type t =
-    { syntax : Syntax.t
-    ; src : string
-    }
-end
-
-module Response : sig
-  type instance =
-    { model : Model.t
-    ; type_ : string
-    ; printed : string option
+    { name : string
+    ; cx_var_name : string
     }
 end
 
