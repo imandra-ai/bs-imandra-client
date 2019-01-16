@@ -12,15 +12,15 @@ module ServerInfo : sig
     }
 
   module Encode : sig
-    val t : t -> Js.Json.t
+    val t : t Decoders_bs.Encode.encoder
   end
 
   module Decode : sig
-    val t : Js.Json.t -> t
+    val t : t Decoders_bs.Decode.decoder
   end
 
   val toFile : ?filename:string -> t -> unit
-  val fromFile : ?filename:string -> unit -> t
+  val fromFile : ?filename:string -> unit -> (t, string) Belt.Result.t
   val cleanup : ?filename:string -> unit -> unit
 
 end
@@ -29,52 +29,47 @@ val start : imandraOptions -> (Node.Child_process.spawnResult * ServerInfo.t) Js
 
 val stop : Node.Child_process.spawnResult -> unit Js.Promise.t
 
-type 'a with_json =
-  ('a * Js.Json.t)
-
 type error = string
 
-module PrinterDetails : sig
-  type t =
-    { name : string
-    ; cx_var_name : string
-    }
-end
-
 module Verify : sig
-  type unknownResult =
-    { reason : string }
+  val bySrc
+    : ?instancePrinter:Api.Request.printer_details
+    -> ?hints:Api.Request.Hints.t
+    -> syntax:Api.src_syntax -> src:string
+    -> ServerInfo.t
+    -> (Api.Response.verify_result, error) Belt.Result.t Js.Promise.t
 
-  type refutedResult =
-    { instance: Response.instance }
-
-  type verifyResult =
-    | Proved
-    | Unknown of unknownResult
-    | Refuted of refutedResult
-
-  val bySrc : ?instancePrinter:PrinterDetails.t -> syntax:Syntax.t -> src:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
-  val byName : ?instancePrinter:PrinterDetails.t -> name:string -> ServerInfo.t -> (verifyResult with_json, error with_json ) Belt.Result.t Js.Promise.t
+  val byName
+    : ?instancePrinter:Api.Request.printer_details
+    -> ?hints:Api.Request.Hints.t
+    -> name:string
+    -> ServerInfo.t
+    -> (Api.Response.verify_result, error) Belt.Result.t Js.Promise.t
 end
 
 module Eval : sig
-  val bySrc : syntax:Syntax.t -> src:string -> ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
+  val bySrc
+    : syntax:Api.src_syntax
+    -> src:string
+    -> ServerInfo.t
+    -> (unit, error) Belt.Result.t Js.Promise.t
 end
 
 module Instance : sig
-  type unknownResult =
-    { reason: string }
+  val bySrc
+    : ?instancePrinter:Api.Request.printer_details
+    -> syntax:Api.src_syntax
+    -> src:string
+    -> ServerInfo.t
+    -> (Api.Response.instance_result, error) Belt.Result.t Js.Promise.t
 
-  type satResult =
-    { instance: Response.instance }
-
-  type instanceResult =
-    | Sat of satResult
-    | Unknown of unknownResult
-    | Unsat
-
-  val bySrc : ?instancePrinter:PrinterDetails.t -> syntax:Syntax.t -> src:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
-  val byName : ?instancePrinter:PrinterDetails.t -> name:string -> ServerInfo.t -> (instanceResult with_json, error with_json) Belt.Result.t Js.Promise.t
+  val byName
+    : ?instancePrinter:Api.Request.printer_details
+    -> name:string
+    -> ServerInfo.t
+    -> (Api.Response.instance_result, error) Belt.Result.t Js.Promise.t
 end
 
-val reset : ServerInfo.t -> (unit with_json, error with_json) Belt.Result.t Js.Promise.t
+val reset
+  : ServerInfo.t
+  -> (unit, error) Belt.Result.t Js.Promise.t

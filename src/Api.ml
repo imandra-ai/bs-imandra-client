@@ -3,11 +3,11 @@ let append_opt_key k f opt xs =
   | None -> xs
   | Some x -> xs @ [(k, f x)]
 
-module Common = struct
-  type src_syntax =
-    | Reason
-    | OCaml
-end
+type src_syntax =
+  | Reason
+  | OCaml
+
+module D = Decoders
 
 module Request = struct
   module Hints = struct
@@ -48,7 +48,7 @@ module Request = struct
     }
 
   type verify_req_src =
-    { syntax : Common.src_syntax
+    { syntax : src_syntax
     ; src_base64 : string
     ; instance_printer : printer_details option
     ; hints : Hints.t option
@@ -61,7 +61,7 @@ module Request = struct
     }
 
   type instance_req_src =
-    { syntax : Common.src_syntax
+    { syntax : src_syntax
     ; src_base64 : string
     ; instance_printer : printer_details option
     }
@@ -72,14 +72,14 @@ module Request = struct
     }
 
   type eval_req_src =
-    { syntax : Common.src_syntax
+    { syntax : src_syntax
     ; src_base64 : string
     }
 end
 
 module Response = struct
   type model =
-    { syntax : Common.src_syntax
+    { syntax : src_syntax
     ; src_base64 : string
     }
 
@@ -101,291 +101,290 @@ module Response = struct
     { error : string }
 
   type instance_result =
-    | Unsat
-    | Sat of with_instance
-    | Unknown of with_unknown_reason
+    | I_unsat
+    | I_sat of with_instance
+    | I_unknown of with_unknown_reason
 
   type verify_result =
-    | Verified
-    | Refuted of with_instance
-    | Unknown of with_unknown_reason
+    | V_verified
+    | V_refuted of with_instance
+    | V_unknown of with_unknown_reason
 end
 
-module Decoders(D: Decoders.Decode.S)(E: Decoders.Encode.S) = struct
-  module Common = struct
-    module Decode = struct
-      open D
-      let src_syntax : Common.src_syntax decoder =
-        (maybe string) >>= function
-        | Some "reason" -> succeed Reason
-        | Some "ocaml" -> succeed OCaml
-        | Some _ -> fail (Printf.sprintf "Expected 'reason' or 'ocaml'")
-        | None -> succeed OCaml
-    end
+module Decoders(D: Decoders.Decode.S) = struct
 
-    module Encode = struct
-      open E
-      let src_syntax : Common.src_syntax encoder = function
-        | Reason -> string "reason"
-        | OCaml -> string "ocaml"
-    end
-  end
+  open D
+  let src_syntax : src_syntax decoder =
+    let open Request in
+    (maybe string) >>= function
+    | Some "reason" -> succeed Reason
+    | Some "ocaml" -> succeed OCaml
+    | Some _ -> fail (Printf.sprintf "Expected 'reason' or 'ocaml'")
+    | None -> succeed OCaml
 
   module Request = struct
     module Hints = struct
       module Induct = struct
         open Request.Hints.Induct
 
-        module Decode = struct
-          open D
+        let structural =
+          (field "vars" (list string)) >>= fun vars ->
+          (field "style" string) >>= fun style_str ->
+          let style = match style_str with
+            | "multiplicative" -> succeed `Multiplicative
+            | "additive" -> succeed `Additive
+            | _ -> fail "Expected 'multiplicative' or 'additive'"
+          in
+          style >|= fun style ->
+          (Structural { style; vars })
 
-          let structural =
-            (field "vars" (list string)) >>= fun vars ->
-            (field "style" string) >>= fun style_str ->
-            let style = match style_str with
-              | "multiplicative" -> succeed `Multiplicative
-              | "additive" -> succeed `Additive
-              | _ -> fail "Expected 'multiplicative' or 'additive'"
-            in
-            style >|= fun style ->
-            (Structural { style; vars })
+        let functional =
+          field "f_name" string >|= fun f_name -> Functional { f_name }
 
-          let functional =
-            field "f_name" string >|= fun f_name -> Functional { f_name }
+        let t =
+          (field "type" string) >>= function
+          | "functional" -> (field "body" functional)
+          | "structural" -> (field "body" structural)
+          | "default" -> succeed Default
+          | _ -> fail "Expected 'functional', 'structural' or 'default'"
 
-          let t =
-            (field "type" string) >>= function
-            | "functional" -> (field "body" functional)
-            | "structural" -> (field "body" structural)
-            | "default" -> succeed Default
-            | _ -> fail "Expected 'functional', 'structural' or 'default'"
-        end
-
-        module Encode = struct
-          open E
-          let functional x =
-            obj [ ("f_name", string x.f_name ) ]
-
-          let structural x =
-            obj
-              [ ("vars", list string x.vars)
-              ; ("style"
-                , string (match x.style with
-                      | `Multiplicative -> "multipilicative"
-                      | `Additive -> "additive")
-                )
-              ]
-
-          let t : t encoder = function
-            | Default ->  obj [("type", string "default")]
-            | Functional x -> obj [("type", string "functional"); ("body", functional x)]
-            | Structural x -> obj [("type", string "structural"); ("body", structural x)]
-        end
       end
 
       module Method = struct
         open Request.Hints.Method
 
-        module Decode = struct
-          open D
-          let unroll =
-            (maybe (field "steps" int)) >>= fun steps ->
-            succeed { steps }
+        let unroll =
+          (maybe (field "steps" int)) >>= fun steps ->
+          succeed { steps }
 
-          let ext_solver =
-            field "name" string >>= fun name ->
-            succeed { name }
+        let ext_solver =
+          field "name" string >>= fun name ->
+          succeed { name }
 
-          let t : t decoder =
-            (field "type" string) >>= function
-            | "unroll" -> (field "body" unroll) >|= (fun x -> Unroll x)
-            | "ext_solver" -> (field "body" ext_solver) >|= (fun x -> Ext_solver x)
-            | "auto" -> succeed Auto
-            | "induct" -> (field "body" Induct.Decode.t) >|= (fun t -> Induct t)
-            | _ -> fail "Expected 'unroll', 'ext_solver', 'auto' or 'induct'"
-        end
+        let t : t decoder =
+          (field "type" string) >>= function
+          | "unroll" -> (field "body" unroll) >|= (fun x -> Unroll x)
+          | "ext_solver" -> (field "body" ext_solver) >|= (fun x -> Ext_solver x)
+          | "auto" -> succeed Auto
+          | "induct" -> (field "body" Induct.t) >|= (fun t -> Induct t)
+          | _ -> fail "Expected 'unroll', 'ext_solver', 'auto' or 'induct'"
 
-        module Encode = struct
-          open E
-
-          let unroll x =
-            obj [("steps", option int x.steps)]
-
-          let ext_solver x =
-            obj [("name", string x.name)]
-
-          let t : t encoder = function
-            | Unroll x -> obj [("type", string "unroll"); ("body", unroll x)]
-            | Ext_solver x -> obj [("type", string "ext_solver"); ("body", ext_solver x)]
-            | Auto -> obj [("type", string "auto")]
-            | Induct x -> obj [("type", string "auto"); ("body", Induct.Encode.t x)]
-        end
       end
 
-      module Decode = struct
-        open D
-        let t : Request.Hints.t decoder =
-          (field "method" Method.Decode.t) >>= fun method_ ->
-          succeed { method_ }
-      end
+      let t : Request.Hints.t decoder =
+        (field "method" Method.t) >>= fun method_ ->
+        succeed Request.Hints.{ method_ }
 
-      module Encode = struct
-        open E
-        let t : Request.Hints.t encoder = fun x ->
-          obj [ ("method", Method.Encode.t x.method_) ]
-      end
     end
 
-    module Decode = struct
-      open D
-      let printer_details : Request.printer_details decoder =
-        (field "name" string) >>= fun name ->
-        (field "cx_var_name" string) >>= fun cx_var_name ->
-        succeed { name; cx_var_name }
+    let printer_details : Request.printer_details decoder =
+      (field "name" string) >>= fun name ->
+      (field "cx_var_name" string) >>= fun cx_var_name ->
+      succeed Request.{ name; cx_var_name }
 
-      let verify_req_src : Request.verify_req_src decoder =
-        (field "syntax" Common.Decode.src_syntax) >>= fun syntax ->
-        (field "src_base64" string) >>= fun src_base64 ->
-        (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
-        (maybe (field "hints" Hints.Decode.t)) >>= fun hints ->
-        succeed { syntax; src_base64; instance_printer; hints }
+    let verify_req_src : Request.verify_req_src decoder =
+      (field "syntax" src_syntax) >>= fun syntax ->
+      (field "src_base64" string) >>= fun src_base64 ->
+      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
+      (maybe (field "hints" Hints.t)) >>= fun hints ->
+      succeed Request.{ syntax; src_base64; instance_printer; hints }
 
-      let verify_req_name : Request.verify_req_name decoder =
-        (field "name" string) >>= fun name ->
-        (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
-        (maybe (field "hints" Hints.Decode.t)) >>= fun hints ->
-        succeed { name; instance_printer; hints }
+    let verify_req_name : Request.verify_req_name decoder =
+      (field "name" string) >>= fun name ->
+      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
+      (maybe (field "hints" Hints.t)) >>= fun hints ->
+      succeed Request.{ name; instance_printer; hints }
 
-      let instance_req_src : Request.instance_req_src decoder =
-        (field "syntax" Common.Decode.src_syntax) >>= fun syntax ->
-        (field "src_base64" string) >>= fun src_base64 ->
-        (maybe (field "instance_printer"  printer_details)) >>= fun instance_printer ->
-        succeed { syntax; src_base64; instance_printer }
+    let instance_req_src : Request.instance_req_src decoder =
+      (field "syntax" src_syntax) >>= fun syntax ->
+      (field "src_base64" string) >>= fun src_base64 ->
+      (maybe (field "instance_printer"  printer_details)) >>= fun instance_printer ->
+      succeed Request.{ syntax; src_base64; instance_printer }
 
-      let instance_req_name : Request.instance_req_name decoder =
-        (field "name" string) >>= fun name ->
-        (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
-        succeed { name; instance_printer }
+    let instance_req_name : Request.instance_req_name decoder =
+      (field "name" string) >>= fun name ->
+      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
+      succeed Request.{ name; instance_printer }
 
-      let eval_req_src : Request.eval_req_src decoder =
-        (field "syntax" Common.Decode.src_syntax) >>= fun syntax ->
-        (field "src_base64" string) >>= fun src_base64 ->
-        succeed { syntax; src_base64 }
-    end
+    let eval_req_src : Request.eval_req_src decoder =
+      (field "syntax" src_syntax) >>= fun syntax ->
+      (field "src_base64" string) >>= fun src_base64 ->
+      succeed Request.{ syntax; src_base64 }
 
-    module Encode = struct
-      open E
-      let printer_details (x : Request.printer_details) =
-        obj [ ("name", string x.name ) ]
-
-      let verify_req_src (x : Request.verify_req_src) =
-        obj ([ ("syntax", Common.Encode.src_syntax x.syntax )
-             ; ("src_base64", string x.src_base64)
-             ]
-             |> append_opt_key "instance_printer" printer_details x.instance_printer
-             |> append_opt_key "hints" Hints.Encode.t x.hints)
-
-      let verify_req_name (x : Request.verify_req_name) =
-        obj ([ ("name", string x.name )
-             ]
-             |> append_opt_key "instance_printer" printer_details x.instance_printer
-             |> append_opt_key "hints" Hints.Encode.t x.hints)
-
-      let instance_req_src (x : Request.instance_req_src) =
-        obj ([ ("syntax", Common.Encode.src_syntax x.syntax )
-             ; ("src_base64", string x.src_base64)
-             ]
-             |> append_opt_key "instance_printer" printer_details x.instance_printer)
-
-      let instance_req_name (x : Request.instance_req_name) =
-        obj ([ ("name", string x.name )
-             ]
-             |> append_opt_key "instance_printer" printer_details x.instance_printer)
-
-      let eval_req_src (x : Request.eval_req_src) =
-        obj ([ ("syntax", Common.Encode.src_syntax x.syntax)
-             ; ("src_base64", string x.src_base64)
-             ])
-    end
   end
 
   module Response = struct
     open Response
 
-    module Decode = struct
-      type my_error = error
-      open D
-      let model : model decoder =
-        (field "syntax" Common.Decode.src_syntax) >>= fun syntax ->
-        (field "src_base64" string) >>= fun src_base64 ->
-        succeed { syntax; src_base64 }
+    type my_error = Response.error
+    let src_syntax : src_syntax decoder =
+      (maybe string) >>= function
+      | Some "reason" -> succeed Reason
+      | Some "ocaml" -> succeed OCaml
+      | Some _ -> fail (Printf.sprintf "Expected 'reason' or 'ocaml'")
+      | None -> succeed OCaml
 
-      let instance : instance decoder =
-        (field "model" model) >>= fun model ->
-        (field "type" string) >>= fun type_ ->
-        (maybe (field "printed" string)) >>= fun printed ->
-        succeed { model; type_; printed }
+    let model : model decoder =
+      (field "syntax" src_syntax) >>= fun syntax ->
+      (field "src_base64" string) >>= fun src_base64 ->
+      succeed { syntax; src_base64 }
 
-      let with_instance : with_instance decoder =
-        (field "instance" instance) >>= fun instance ->
-        succeed { instance }
+    let instance : instance decoder =
+      (field "model" model) >>= fun model ->
+      (field "type" string) >>= fun type_ ->
+      (maybe (field "printed" string)) >>= fun printed ->
+      succeed { model; type_; printed }
 
-      let with_unknown_reason : with_unknown_reason decoder =
-        (field "unknown_reason" string) >>= fun unknown_reason ->
-        succeed { unknown_reason }
+    let with_instance : with_instance decoder =
+      (field "instance" instance) >>= fun instance ->
+      succeed { instance }
 
-      let error : my_error decoder =
-        (field "error" string) >>= fun e ->
-        succeed { error = e }
+    let with_unknown_reason : with_unknown_reason decoder =
+      (field "unknown_reason" string) >>= fun unknown_reason ->
+      succeed { unknown_reason }
 
-      let verify_result : verify_result decoder =
-        (field "type" string) >>= function
-        | "verified" -> succeed Verified
-        | "refuted" -> (field "body" with_instance) >|= (fun x -> Refuted x)
-        | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> Unknown x)
-        | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
+    let error : my_error decoder =
+      (field "error" string) >>= fun e ->
+      succeed { error = e }
 
-      let instance_result : instance_result decoder =
-        (field "type" string) >>= function
-        | "unsat" -> succeed Unsat
-        | "sat" -> (field "body" with_instance) >|= (fun x -> Sat x)
-        | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> Unknown x)
-        | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
+    let verify_result : verify_result decoder =
+      (field "type" string) >>= function
+      | "verified" -> succeed V_verified
+      | "refuted" -> (field "body" with_instance) >|= (fun x -> V_refuted x)
+      | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> V_unknown x)
+      | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
+
+    let instance_result : instance_result decoder =
+      (field "type" string) >>= function
+      | "unsat" -> succeed I_unsat
+      | "sat" -> (field "body" with_instance) >|= (fun x -> I_sat x)
+      | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> I_unknown x)
+      | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
+
+  end
+end
+
+module Encoders(E: D.Encode.S) = struct
+
+  open E
+  let src_syntax : src_syntax encoder = function
+    | Reason -> string "reason"
+    | OCaml -> string "ocaml"
+
+  module Request = struct
+    module Hints = struct
+      module Induct = struct
+        open Request.Hints.Induct
+
+        let functional x =
+          obj [ ("f_name", string x.f_name ) ]
+
+        let structural x =
+          obj
+            [ ("vars", list string x.vars)
+            ; ("style"
+              , string (match x.style with
+                    | `Multiplicative -> "multipilicative"
+                    | `Additive -> "additive")
+              )
+            ]
+
+        let t : t encoder = function
+          | Default ->  obj [("type", string "default")]
+          | Functional x -> obj [("type", string "functional"); ("body", functional x)]
+          | Structural x -> obj [("type", string "structural"); ("body", structural x)]
+      end
+
+      module Method = struct
+        open Request.Hints.Method
+
+        let unroll x =
+          obj [("steps", option int x.steps)]
+
+        let ext_solver x =
+          obj [("name", string x.name)]
+
+        let t : t encoder = function
+          | Unroll x -> obj [("type", string "unroll"); ("body", unroll x)]
+          | Ext_solver x -> obj [("type", string "ext_solver"); ("body", ext_solver x)]
+          | Auto -> obj [("type", string "auto")]
+          | Induct x -> obj [("type", string "auto"); ("body", Induct.t x)]
+      end
+
+      let t : Request.Hints.t encoder = fun x ->
+        obj [ ("method", Method.t x.method_) ]
     end
 
-    module Encode = struct
-      open E
-      let model (x : model) =
-        obj [ ("syntax", Common.Encode.src_syntax x.syntax )
-            ; ("src_base64", string x.src_base64)
-            ]
+    let src_syntax : src_syntax encoder = function
+      | Reason -> string "reason"
+      | OCaml -> string "ocaml"
 
-      let instance (x : instance) =
-        obj ([ ("model", model x.model)
-             ; ("type", string x.type_)
-             ]
-             |> append_opt_key "printed" string x.printed)
+    let printer_details (x : Request.printer_details) =
+      obj [ ("name", string x.name ) ]
 
-      let with_instance (x : with_instance) =
-        obj [ ("instance", instance x.instance )
-            ]
+    let verify_req_src (x : Request.verify_req_src) =
+      obj ([ ("syntax", src_syntax x.syntax )
+           ; ("src_base64", string x.src_base64)
+           ]
+           |> append_opt_key "instance_printer" printer_details x.instance_printer
+           |> append_opt_key "hints" Hints.t x.hints)
 
-      let with_unknown_reason (x : with_unknown_reason) =
-        obj [ ("unknown_reason", string x.unknown_reason)
-            ]
+    let verify_req_name (x : Request.verify_req_name) =
+      obj ([ ("name", string x.name )
+           ]
+           |> append_opt_key "instance_printer" printer_details x.instance_printer
+           |> append_opt_key "hints" Hints.t x.hints)
 
-      let error_response (x : error) =
-        obj [ ("error", string x.error) ]
+    let instance_req_src (x : Request.instance_req_src) =
+      obj ([ ("syntax", src_syntax x.syntax )
+           ; ("src_base64", string x.src_base64)
+           ]
+           |> append_opt_key "instance_printer" printer_details x.instance_printer)
 
-      let verify_result : verify_result encoder  = function
-        | Verified -> obj [ ("type", string "verified") ]
-        | Refuted x -> obj [ ("type", string "refuted"); ("body", with_instance x) ]
-        | Unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
+    let instance_req_name (x : Request.instance_req_name) =
+      obj ([ ("name", string x.name )
+           ]
+           |> append_opt_key "instance_printer" printer_details x.instance_printer)
 
-      let instance_result : instance_result encoder = function
-        | Unsat -> obj [ ("type", string "unsat") ]
-        | Sat x -> obj [ ("type", string "sat"); ("body", with_instance x) ]
-        | Unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
-    end
+    let eval_req_src (x : Request.eval_req_src) =
+      obj ([ ("syntax", src_syntax x.syntax)
+           ; ("src_base64", string x.src_base64)
+           ])
+  end
+
+  module Response = struct
+    open Response
+
+    let model (x : model) =
+      obj [ ("syntax", src_syntax x.syntax )
+          ; ("src_base64", string x.src_base64)
+          ]
+
+    let instance (x : instance) =
+      obj ([ ("model", model x.model)
+           ; ("type", string x.type_)
+           ]
+           |> append_opt_key "printed" string x.printed)
+
+    let with_instance (x : with_instance) =
+      obj [ ("instance", instance x.instance )
+          ]
+
+    let with_unknown_reason (x : with_unknown_reason) =
+      obj [ ("unknown_reason", string x.unknown_reason)
+          ]
+
+    let error_response (x : error) =
+      obj [ ("error", string x.error) ]
+
+    let verify_result : verify_result encoder  = function
+      | V_verified -> obj [ ("type", string "verified") ]
+      | V_refuted x -> obj [ ("type", string "refuted"); ("body", with_instance x) ]
+      | V_unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
+
+    let instance_result : instance_result encoder = function
+      | I_unsat -> obj [ ("type", string "unsat") ]
+      | I_sat x -> obj [ ("type", string "sat"); ("body", with_instance x) ]
+      | I_unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
   end
 end
