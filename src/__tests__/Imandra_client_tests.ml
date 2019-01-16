@@ -3,7 +3,7 @@ open Jest
 let runningNodeProcess = ref None
 let runningImandraServerInfo = ref None
 
-let syntax = Imandra_client.Syntax.OCaml
+let syntax = Api.OCaml
 
 let () =
   beforeAllPromise ~timeout:20000 (fun () ->
@@ -27,96 +27,98 @@ let () =
 
 let () =
   testPromise ~timeout:20000 "verify refuted" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Verify.bySrc ip ~syntax ~src:"fun x -> x = 3"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (Imandra_client.Verify.Refuted _, _) -> Js.Promise.resolve pass
+          | Belt.Result.Ok (Api.Response.V_refuted _) -> Js.Promise.resolve pass
           | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
-          | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "verify by name proved" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Eval.bySrc ip ~syntax ~src:"let rev_rev x = 3 = 3"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok _ ->
             Imandra_client.Verify.byName ip ~name:"rev_rev"
             |> Js.Promise.then_ (function
-                | Belt.Result.Ok (Imandra_client.Verify.Proved, _) -> Js.Promise.resolve pass
+                | Belt.Result.Ok (Api.Response.V_proved) -> Js.Promise.resolve pass
                 | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
-                | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+                | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
               )
-          | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "instance" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Instance.bySrc ip ~syntax ~src:"fun x -> List.length x > 4"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (Imandra_client.Instance.Sat _, _) -> Js.Promise.resolve pass
-          | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "instance result not satisifed")
-          | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Ok (Api.Response.I_sat _) -> Js.Promise.resolve pass
+          | Belt.Result.Ok _ -> Js.Promise.resolve (fail "instance result not satisifed")
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "eval failure" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Eval.bySrc ip ~syntax ~src:"garbage"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "unexpected success")
-          | Belt.Result.Error (e, _) ->
+          | Belt.Result.Ok _ -> Js.Promise.resolve (fail "unexpected success")
+          | Belt.Result.Error e ->
             Js.Promise.resolve (Expect.toEqual e (`Just "Unbound value garbage"))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "eval failure for mod_use" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Eval.bySrc ip ~syntax ~src:"#mod_use \"lol_no_file.iml\""
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "unexpected success")
-          | Belt.Result.Error (e, _j) ->
+          | Belt.Result.Ok _ -> Js.Promise.resolve (fail "unexpected success")
+          | Belt.Result.Error e ->
             Js.Promise.resolve (Expect.toContainString "Cannot find file" (`Just e))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "eval reason" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Eval.bySrc ip ~syntax:Reason ~src:"let myfn = (x) => x == 3;"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (_, _) ->
+          | Belt.Result.Ok _ ->
             Js.Promise.resolve (pass)
-          | Belt.Result.Error (e, _j) ->
+          | Belt.Result.Error e ->
             Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "verify reason" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Eval.bySrc ip ~syntax:Reason ~src:"(x) => x == 3;"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (_, _) ->
+          | Belt.Result.Ok () ->
             Js.Promise.resolve (pass)
-          | Belt.Result.Error (e, _j) ->
+          | Belt.Result.Error e ->
             Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "verify ocaml again" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Verify.bySrc ip ~syntax ~src:"fun x -> x = 3"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (_, _) ->
+          | Belt.Result.Ok (Api.Response.V_proved) ->
             Js.Promise.resolve (pass)
-          | Belt.Result.Error (e, _j) ->
+          | Belt.Result.Ok _ ->
+            Js.Promise.resolve (fail "not proved")
+          | Belt.Result.Error e ->
             Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
@@ -124,50 +126,50 @@ let () =
 let () =
   let src = {| type t = { x : Z.t };; let print_t a = (Printf.sprintf "x is %s" (Z.to_string a.x)) [@@program] |} in
   testPromise ~timeout:20000 "print instance" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Eval.bySrc ip ~syntax ~src
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (_, _) ->
-            let instancePrinter = Imandra_client.PrinterDetails.{ name = "print_t"; cx_var_name = "a" } in
+          | Belt.Result.Ok () ->
+            let instancePrinter = Api.Request.{ name = "print_t"; cx_var_name = "a" } in
             print_endline instancePrinter.name;
             Imandra_client.Instance.bySrc ip ~instancePrinter ~syntax ~src:"fun a -> a.x + 97 = 100"
             |> Js.Promise.then_ (function
-                | Belt.Result.Ok (Imandra_client.Instance.Sat { instance }, _) ->
+                | Belt.Result.Ok (Api.Response.I_sat { instance }) ->
                   Js.Promise.resolve (Expect.toEqual instance.printed (`Just (Some "x is 3")))
-                | Belt.Result.Ok (_, _) -> Js.Promise.resolve (fail "instance result not satisifed")
-                | Belt.Result.Error (e, _) -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+                | Belt.Result.Ok _ -> Js.Promise.resolve (fail "instance result not satisifed")
+                | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
               )
-          | Belt.Result.Error (e, _j) ->
+          | Belt.Result.Error e ->
             Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
 
 let () =
   testPromise ~timeout:20000 "reset" (fun () ->
-      let ip = !runningImandraServerInfo |> Belt.Option.getExn in
+      let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Eval.bySrc ip ~syntax ~src:"let to_be_reset x = x = 3"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (_, _) ->
+          | Belt.Result.Ok () ->
             Imandra_client.Verify.byName ip ~name:"to_be_reset"
             |> Js.Promise.then_ (function
-                | Belt.Result.Ok (_, _) ->
+                | Belt.Result.Ok _ ->
                   Imandra_client.reset ip
                   |> Js.Promise.then_ (function
-                      | Belt.Result.Ok (_, _) ->
+                      | Belt.Result.Ok _ ->
                         Imandra_client.Verify.byName ip ~name:"to_be_reset"
                         |> Js.Promise.then_ (function
-                            | Belt.Result.Error (e, _j) ->
+                            | Belt.Result.Error e ->
                               Js.Promise.resolve (Expect.toContainString "Unknown verification goal" (`Just e))
                             | _ ->
                               Js.Promise.resolve (fail "unexpected result")
                           )
-                      | Belt.Result.Error (e, _j) ->
+                      | Belt.Result.Error e ->
                         Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
                     )
-                | Belt.Result.Error (e, _j) ->
+                | Belt.Result.Error e ->
                   Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
               )
-          | Belt.Result.Error (e, _j) ->
+          | Belt.Result.Error e ->
             Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
         )
     )
