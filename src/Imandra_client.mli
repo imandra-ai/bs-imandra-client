@@ -29,7 +29,14 @@ val start : imandraOptions -> (Node.Child_process.spawnResult * ServerInfo.t) Js
 
 val stop : Node.Child_process.spawnResult -> unit Js.Promise.t
 
-type error = string
+module Error : sig
+  type t =
+    | Decoder_error of Decoders_bs.Decode.error
+    | Imandra_error of Api.Response.error
+
+  val pp : Format.formatter -> t -> unit
+end
+
 
 module Verify : sig
   val bySrc
@@ -37,14 +44,14 @@ module Verify : sig
     -> ?hints:Api.Request.Hints.t
     -> syntax:Api.src_syntax -> src:string
     -> ServerInfo.t
-    -> (Api.Response.verify_result, error) Belt.Result.t Js.Promise.t
+    -> (Api.Response.verify_result, Error.t) Belt.Result.t Js.Promise.t
 
   val byName
     : ?instancePrinter:Api.Request.printer_details
     -> ?hints:Api.Request.Hints.t
     -> name:string
     -> ServerInfo.t
-    -> (Api.Response.verify_result, error) Belt.Result.t Js.Promise.t
+    -> (Api.Response.verify_result, Error.t) Belt.Result.t Js.Promise.t
 end
 
 module Eval : sig
@@ -52,7 +59,7 @@ module Eval : sig
     : syntax:Api.src_syntax
     -> src:string
     -> ServerInfo.t
-    -> (unit, error) Belt.Result.t Js.Promise.t
+    -> (unit, Error.t) Belt.Result.t Js.Promise.t
 end
 
 module Instance : sig
@@ -61,15 +68,15 @@ module Instance : sig
     -> syntax:Api.src_syntax
     -> src:string
     -> ServerInfo.t
-    -> (Api.Response.instance_result, error) Belt.Result.t Js.Promise.t
+    -> (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t
 
   val byName
     : ?instancePrinter:Api.Request.printer_details
     -> name:string
     -> ServerInfo.t
-    -> (Api.Response.instance_result, error) Belt.Result.t Js.Promise.t
+    -> (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t
 end
 
 val reset
   : ServerInfo.t
-  -> (unit, error) Belt.Result.t Js.Promise.t
+  -> (unit, Error.t) Belt.Result.t Js.Promise.t

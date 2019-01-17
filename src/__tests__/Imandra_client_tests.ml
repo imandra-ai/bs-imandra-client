@@ -32,7 +32,7 @@ let () =
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (Api.Response.V_refuted _) -> Js.Promise.resolve pass
           | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
-          | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -46,9 +46,9 @@ let () =
             |> Js.Promise.then_ (function
                 | Belt.Result.Ok (Api.Response.V_proved) -> Js.Promise.resolve pass
                 | Belt.Result.Ok _ -> Js.Promise.resolve (fail "wrong verify result")
-                | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+                | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
               )
-          | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -59,7 +59,7 @@ let () =
       |> Js.Promise.then_ (function
           | Belt.Result.Ok (Api.Response.I_sat _) -> Js.Promise.resolve pass
           | Belt.Result.Ok _ -> Js.Promise.resolve (fail "instance result not satisifed")
-          | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -69,8 +69,9 @@ let () =
       Imandra_client.Eval.bySrc ip ~syntax ~src:"garbage"
       |> Js.Promise.then_ (function
           | Belt.Result.Ok _ -> Js.Promise.resolve (fail "unexpected success")
-          | Belt.Result.Error e ->
-            Js.Promise.resolve (Expect.toEqual e (`Just "Unbound value garbage"))
+          | Belt.Result.Error (Imandra_client.Error.Imandra_error e) ->
+            Js.Promise.resolve (Expect.toEqual e.error (`Just "Unbound value garbage"))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -80,8 +81,9 @@ let () =
       Imandra_client.Eval.bySrc ip ~syntax ~src:"#mod_use \"lol_no_file.iml\""
       |> Js.Promise.then_ (function
           | Belt.Result.Ok _ -> Js.Promise.resolve (fail "unexpected success")
-          | Belt.Result.Error e ->
-            Js.Promise.resolve (Expect.toContainString "Cannot find file" (`Just e))
+          | Belt.Result.Error (Imandra_client.Error.Imandra_error e) ->
+            Js.Promise.resolve (Expect.toContainString "Cannot find file" (`Just e.error))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -92,8 +94,7 @@ let () =
       |> Js.Promise.then_ (function
           | Belt.Result.Ok _ ->
             Js.Promise.resolve (pass)
-          | Belt.Result.Error e ->
-            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -104,8 +105,7 @@ let () =
       |> Js.Promise.then_ (function
           | Belt.Result.Ok () ->
             Js.Promise.resolve (pass)
-          | Belt.Result.Error e ->
-            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -114,12 +114,12 @@ let () =
       let ip = !runningImandraServerInfo |> Belt.Option.getExn |> Belt.Result.getExn in
       Imandra_client.Verify.bySrc ip ~syntax ~src:"fun x -> x = 3"
       |> Js.Promise.then_ (function
-          | Belt.Result.Ok (Api.Response.V_proved) ->
+          | Belt.Result.Ok (Api.Response.V_refuted _) ->
             Js.Promise.resolve (pass)
           | Belt.Result.Ok _ ->
-            Js.Promise.resolve (fail "not proved")
+            Js.Promise.resolve (fail "not refuted")
           | Belt.Result.Error e ->
-            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+            Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -135,12 +135,11 @@ let () =
             Imandra_client.Instance.bySrc ip ~instancePrinter ~syntax ~src:"fun a -> a.x + 97 = 100"
             |> Js.Promise.then_ (function
                 | Belt.Result.Ok (Api.Response.I_sat { instance }) ->
-                  Js.Promise.resolve (Expect.toEqual instance.printed (`Just (Some "x is 3")))
+                  Js.Promise.resolve (Expect.toEqual (Some "x is 3") (`Just instance.printed ))
                 | Belt.Result.Ok _ -> Js.Promise.resolve (fail "instance result not satisifed")
-                | Belt.Result.Error e -> Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+                | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
               )
-          | Belt.Result.Error e ->
-            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 
@@ -158,19 +157,16 @@ let () =
                       | Belt.Result.Ok _ ->
                         Imandra_client.Verify.byName ip ~name:"to_be_reset"
                         |> Js.Promise.then_ (function
-                            | Belt.Result.Error e ->
-                              Js.Promise.resolve (Expect.toContainString "Unknown verification goal" (`Just e))
+                            | Belt.Result.Error (Imandra_client.Error.Imandra_error e) ->
+                              Js.Promise.resolve (Expect.toContainString "Unknown verification goal" (`Just e.error))
                             | _ ->
                               Js.Promise.resolve (fail "unexpected result")
                           )
-                      | Belt.Result.Error e ->
-                        Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+                      | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
                     )
-                | Belt.Result.Error e ->
-                  Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+                | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
               )
-          | Belt.Result.Error e ->
-            Js.Promise.resolve (fail (Printf.sprintf "error from imandra: %s" e))
+          | Belt.Result.Error e -> Js.Promise.resolve (fail (Format.asprintf "%a" Imandra_client.Error.pp e))
         )
     )
 

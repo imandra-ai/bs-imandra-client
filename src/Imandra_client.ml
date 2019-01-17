@@ -79,7 +79,15 @@ let to_base64 (s : string) =
   let b = Node.Buffer.fromString s in
   (bufferToStringWithEncoding b `base64)
 
-type error = string
+module Error = struct
+  type t =
+    | Decoder_error of Decoders_bs.Decode.error
+    | Imandra_error of Api.Response.error
+
+  let pp fmt = function
+    | Decoder_error e -> Format.fprintf fmt "Decoder_error: %a" Decoders_bs.Decode.pp_error e
+    | Imandra_error e -> Format.fprintf fmt "Imandra_error: %s" e.error
+end
 
 let printStreamsDebug (np : Node.Child_process.spawnResult) =
   let props = Node.Child_process.readAs np in
@@ -210,6 +218,20 @@ let stop (np : Node.Child_process.spawnResult) : unit Js.Promise.t =
     )
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
+let handle_response decoder res =
+  let status = Fetch.Response.status res in
+  Fetch.Response.json res
+  |> Js.Promise.then_ (fun json ->
+      if status = 200 then
+        (Decoders_bs.Decode.decode_value decoder json)
+        |> Decoders_util.My_result.map_err (fun e -> Error.Decoder_error e)
+        |> Js.Promise.resolve
+      else
+        (Decoders_bs.Decode.decode_value D.Response.error json)
+        |> Decoders_util.My_result.map_err (fun e -> Error.Decoder_error e)
+        |> (fun r -> Belt.Result.flatMap r (fun decoded -> Error (Error.Imandra_error decoded)))
+        |> Js.Promise.resolve
+    )
 
 module Verify = struct
   let bySrc
@@ -218,51 +240,27 @@ module Verify = struct
       ~(syntax: Api.src_syntax)
       ~(src : string)
       (p : ServerInfo.t)
-    : (Api.Response.verify_result, error) Belt.Result.t Js.Promise.t =
+    : (Api.Response.verify_result, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.verify_req_src = { syntax; src_base64 = (to_base64 src); instance_printer = instancePrinter; hints } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.verify_req_src req) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/verify/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (fun res ->
-        let status = Fetch.Response.status res in
-        Fetch.Response.json res
-        |> Js.Promise.then_ (fun json ->
-            if status = 200 then
-              (Decoders_bs.Decode.decode_value D.Response.verify_result json)
-              |> Decoders_util.My_result.map_err (Format.asprintf "%a" Decoders_bs.Decode.pp_error)
-              |> Js.Promise.resolve
-            else
-              Belt.Result.(Error (Js.Json.stringify json))
-              |> Js.Promise.resolve
-          )
-      )
+    |> Js.Promise.then_ (handle_response D.Response.verify_result)
 
   let byName
       ?(instancePrinter: Api.Request.printer_details option)
       ?(hints: Api.Request.Hints.t option)
       ~(name : string)
       (p : ServerInfo.t)
-    : (Api.Response.verify_result, error) Belt.Result.t Js.Promise.t =
+    : (Api.Response.verify_result, Error.t) Belt.Result.t Js.Promise.t =
     let req : Api.Request.verify_req_name = { name; instance_printer = instancePrinter; hints } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.verify_req_name req) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/verify/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (fun res ->
-        let status = Fetch.Response.status res in
-        Fetch.Response.json res
-        |> Js.Promise.then_ (fun json ->
-            if status = 200 then
-              (Decoders_bs.Decode.decode_value D.Response.verify_result json)
-              |> Decoders_util.My_result.map_err (Format.asprintf "%a" Decoders_bs.Decode.pp_error)
-              |> Js.Promise.resolve
-            else
-              Belt.Result.(Error (Js.Json.stringify json))
-              |> Js.Promise.resolve
-          )
-      )
+    |> Js.Promise.then_ (handle_response D.Response.verify_result)
 end
 
 module Eval = struct
@@ -270,25 +268,14 @@ module Eval = struct
       ~(syntax: Api.src_syntax)
       ~(src : string)
       (p : ServerInfo.t)
-    : (unit, error) Belt.Result.t Js.Promise.t =
+    : (unit, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.eval_req_src = { syntax; src_base64 = (to_base64 src) } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.eval_req_src req) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/eval/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (fun res ->
-        let status = Fetch.Response.status res in
-        Fetch.Response.json res
-        |> Js.Promise.then_ (fun json ->
-            if status = 200 then
-              Belt.Result.(Ok ())
-              |> Js.Promise.resolve
-            else
-              Belt.Result.(Error (Js.Json.stringify json))
-              |> Js.Promise.resolve
-          )
-      )
+    |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
 end
 
 module Instance = struct
@@ -297,66 +284,31 @@ module Instance = struct
       ~(syntax: Api.src_syntax)
       ~(src : string)
       (p : ServerInfo.t)
-    : (Api.Response.instance_result, error) Belt.Result.t Js.Promise.t =
+    : (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.instance_req_src = { instance_printer = instancePrinter; syntax; src_base64 = (to_base64 src) } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.instance_req_src req) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/instance/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (fun res ->
-        let status = Fetch.Response.status res in
-        Fetch.Response.json res
-        |> Js.Promise.then_ (fun json ->
-            if status = 200 then
-              (Decoders_bs.Decode.decode_value D.Response.instance_result json)
-              |> Decoders_util.My_result.map_err (Format.asprintf "%a" Decoders_bs.Decode.pp_error)
-              |> Js.Promise.resolve
-            else
-              Belt.Result.(Error (Js.Json.stringify json))
-              |> Js.Promise.resolve
-          )
-      )
+    |> Js.Promise.then_ (handle_response D.Response.instance_result)
 
   let byName
       ?(instancePrinter: Api.Request.printer_details option)
       ~(name : string)
       (p : ServerInfo.t)
-    : (Api.Response.instance_result, error) Belt.Result.t Js.Promise.t =
+    : (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.instance_req_name = { name; instance_printer = instancePrinter } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.instance_req_name req) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/instance/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (fun res ->
-        let status = Fetch.Response.status res in
-        Fetch.Response.json res
-        |> Js.Promise.then_ (fun json ->
-            if status = 200 then
-              (Decoders_bs.Decode.decode_value D.Response.instance_result json)
-              |> Decoders_util.My_result.map_err (Format.asprintf "%a" Decoders_bs.Decode.pp_error)
-              |> Js.Promise.resolve
-            else
-              Belt.Result.(Error (Js.Json.stringify json))
-              |> Js.Promise.resolve
-          )
-      )
+    |> Js.Promise.then_ (handle_response D.Response.instance_result)
 end
 
-let reset (p : ServerInfo.t) : (unit, error) Belt.Result.t Js.Promise.t =
+let reset (p : ServerInfo.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/reset"))
       (Fetch.RequestInit.make ~method_:Post ())
-    |> Js.Promise.then_ (fun res ->
-        let status = Fetch.Response.status res in
-        Fetch.Response.json res
-        |> Js.Promise.then_ (fun json ->
-            if status = 200 then
-              Belt.Result.(Ok ())
-              |> Js.Promise.resolve
-            else
-              Belt.Result.(Error (Js.Json.stringify json))
-              |> Js.Promise.resolve
-          )
-      )
+    |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
