@@ -29,3 +29,4 @@ node_modules/
 _build/
 .imandra_init.log
 *.rej
+_opam/
