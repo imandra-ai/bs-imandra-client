@@ -1,5 +1,7 @@
 val function_name: 'a -> string
 
+module Api = Imandra_client_api
+
 type imandraOptions =
   { debug : bool [@bs.optional]
   ; serverCmd : string [@bs.optional]

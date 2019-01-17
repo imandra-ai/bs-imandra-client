@@ -3,6 +3,8 @@ open Jest
 let runningNodeProcess = ref None
 let runningImandraServerInfo = ref None
 
+module Api = Imandra_client.Api
+
 let syntax = Api.OCaml
 
 let () =

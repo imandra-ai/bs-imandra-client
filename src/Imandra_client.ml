@@ -2,6 +2,8 @@
 external spawn : string -> string array -> Node.Child_process.spawnResult = "" [@@bs.module "child_process"]
 external getPort : unit -> int Js.Promise.t = "getPortPromise" [@@bs.module "portfinder"]
 
+module Api = Imandra_client_api
+
 module D = Api.Decoders(Decoders_bs.Decode)
 module E = Api.Encoders(Decoders_bs.Encode)
 
