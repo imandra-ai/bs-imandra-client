@@ -1,5 +1,7 @@
 # bs-imandra-client
 
+[![Build Status](https://travis-ci.org/AestheticIntegration/bs-imandra-client.svg?branch=master)](https://travis-ci.org/AestheticIntegration/bs-imandra-client)
+
 A bucklescript wrapper around Imandra (specifically `imandra-http-server`).
 
 ## Prerequisites
