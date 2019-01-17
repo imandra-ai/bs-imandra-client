@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/Imandra_client.bs.js",
   "scripts": {
-    "test": "jest -i",
+    "test": "npm run build && jest -i",
     "build": "bsb -make-world",
     "watch": "bsb -make-world -w"
   },
