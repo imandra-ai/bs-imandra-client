@@ -89,6 +89,9 @@ module Error = struct
   let pp fmt = function
     | Decoder_error e -> Format.fprintf fmt "Decoder_error: %a" Decoders_bs.Decode.pp_error e
     | Imandra_error e -> Format.fprintf fmt "Imandra_error: %s" e.error
+
+  let pp_str e =
+    Format.asprintf "%a" pp e
 end
 
 let printStreamsDebug (np : Node.Child_process.spawnResult) =

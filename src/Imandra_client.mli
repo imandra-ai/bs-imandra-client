@@ -37,6 +37,8 @@ module Error : sig
     | Imandra_error of Api.Response.error
 
   val pp : Format.formatter -> t -> unit
+
+  val pp_str : t -> string
 end
 
 
