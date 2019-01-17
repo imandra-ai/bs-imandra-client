@@ -197,7 +197,7 @@ module Decoders(D: Decoders.Decode.S) = struct
     let instance_req_src : Request.instance_req_src decoder =
       (field "syntax" src_syntax) >>= fun syntax ->
       (field "src_base64" string) >>= fun src_base64 ->
-      (maybe (field "instance_printer"  printer_details)) >>= fun instance_printer ->
+      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
       succeed Request.{ syntax; src_base64; instance_printer }
 
     let instance_req_name : Request.instance_req_name decoder =
