@@ -344,11 +344,6 @@ module Instance = struct
       )
 end
 
-module Decode = struct
-  let resetResult _json =
-    ()
-end
-
 let reset (p : ServerInfo.t) : (unit, error) Belt.Result.t Js.Promise.t =
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/reset"))

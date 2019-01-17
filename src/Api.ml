@@ -115,7 +115,6 @@ module Decoders(D: Decoders.Decode.S) = struct
 
   open D
   let src_syntax : src_syntax decoder =
-    let open Request in
     (maybe string) >>= function
     | Some "reason" -> succeed Reason
     | Some "ocaml" -> succeed OCaml
@@ -311,14 +310,17 @@ module Encoders(E: D.Encode.S) = struct
           | Induct x -> obj [("type", string "auto"); ("body", Induct.t x)]
       end
 
-      let t : Request.Hints.t encoder = fun x ->
-        obj [ ("method", Method.t x.method_) ]
+      let t (x : Request.Hints.t) =
+        obj [ ("method", Method.t x.Request.Hints.method_) ]
     end
+
+    module Hints_e = Hints
 
     let src_syntax : src_syntax encoder = function
       | Reason -> string "reason"
       | OCaml -> string "ocaml"
 
+    open Request
     let printer_details (x : Request.printer_details) =
       obj [ ("name", string x.name ) ]
 
@@ -327,13 +329,13 @@ module Encoders(E: D.Encode.S) = struct
            ; ("src_base64", string x.src_base64)
            ]
            |> append_opt_key "instance_printer" printer_details x.instance_printer
-           |> append_opt_key "hints" Hints.t x.hints)
+           |> append_opt_key "hints" Hints_e.t x.hints)
 
     let verify_req_name (x : Request.verify_req_name) =
       obj ([ ("name", string x.name )
            ]
            |> append_opt_key "instance_printer" printer_details x.instance_printer
-           |> append_opt_key "hints" Hints.t x.hints)
+           |> append_opt_key "hints" Hints_e.t x.hints)
 
     let instance_req_src (x : Request.instance_req_src) =
       obj ([ ("syntax", src_syntax x.syntax )
