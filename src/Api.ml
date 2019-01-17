@@ -153,7 +153,7 @@ module Decoders(D: Decoders.Decode.S) = struct
         open Request.Hints.Method
 
         let unroll =
-          (maybe (field "steps" int)) >>= fun steps ->
+          (field_opt "steps" int) >>= fun steps ->
           succeed { steps }
 
         let ext_solver =
@@ -184,25 +184,25 @@ module Decoders(D: Decoders.Decode.S) = struct
     let verify_req_src : Request.verify_req_src decoder =
       (field "syntax" src_syntax) >>= fun syntax ->
       (field "src_base64" string) >>= fun src_base64 ->
-      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
-      (maybe (field "hints" Hints.t)) >>= fun hints ->
+      (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
+      (field_opt "hints" Hints.t) >>= fun hints ->
       succeed Request.{ syntax; src_base64; instance_printer; hints }
 
     let verify_req_name : Request.verify_req_name decoder =
       (field "name" string) >>= fun name ->
-      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
-      (maybe (field "hints" Hints.t)) >>= fun hints ->
+      (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
+      (field_opt "hints" Hints.t) >>= fun hints ->
       succeed Request.{ name; instance_printer; hints }
 
     let instance_req_src : Request.instance_req_src decoder =
       (field "syntax" src_syntax) >>= fun syntax ->
       (field "src_base64" string) >>= fun src_base64 ->
-      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
+      (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
       succeed Request.{ syntax; src_base64; instance_printer }
 
     let instance_req_name : Request.instance_req_name decoder =
       (field "name" string) >>= fun name ->
-      (maybe (field "instance_printer" printer_details)) >>= fun instance_printer ->
+      (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
       succeed Request.{ name; instance_printer }
 
     let eval_req_src : Request.eval_req_src decoder =
@@ -231,7 +231,7 @@ module Decoders(D: Decoders.Decode.S) = struct
     let instance : instance decoder =
       (field "model" model) >>= fun model ->
       (field "type" string) >>= fun type_ ->
-      (maybe (field "printed" string)) >>= fun printed ->
+      (field_opt "printed" string) >>= fun printed ->
       succeed { model; type_; printed }
 
     let with_instance : with_instance decoder =
