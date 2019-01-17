@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npm run build && jest -i",
     "build": "bsb -make-world",
+    "clean": "bsb -clean-world",
     "watch": "bsb -make-world -w"
   },
   "author": "",
