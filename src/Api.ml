@@ -322,7 +322,9 @@ module Encoders(E: D.Encode.S) = struct
 
     open Request
     let printer_details (x : Request.printer_details) =
-      obj [ ("name", string x.name ) ]
+      obj [ ("name", string x.name )
+          ; ("cx_var_name", string x.cx_var_name)
+          ]
 
     let verify_req_src (x : Request.verify_req_src) =
       obj ([ ("syntax", src_syntax x.syntax )
