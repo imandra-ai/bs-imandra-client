@@ -62,6 +62,7 @@ module Eval : sig
   val bySrc
     : syntax:Api.src_syntax
     -> src:string
+    -> ?quiet:bool
     -> ServerInfo.t
     -> (unit, Error.t) Belt.Result.t Js.Promise.t
 end

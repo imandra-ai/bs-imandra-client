@@ -272,13 +272,18 @@ module Eval = struct
   let bySrc
       ~(syntax: Api.src_syntax)
       ~(src : string)
+      ?(quiet : bool = true)
       (p : ServerInfo.t)
     : (unit, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.eval_req_src = { syntax; src_base64 = (to_base64 src) } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.eval_req_src req) in
+    let url =
+      p.baseUrl ^ "/eval/by-src" ^
+      (if not quiet then "?quiet=false" else "")
+    in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.baseUrl ^ "/eval/by-src"))
+      (Fetch.Request.make url)
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
 end
