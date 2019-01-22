@@ -3,6 +3,7 @@ external spawn : string -> string array -> Node.Child_process.spawnResult = "" [
 external get_port : unit -> int Js.Promise.t = "getPortPromise" [@@bs.module "portfinder"]
 
 module Api = Imandra_client_api
+module Expect = Imandra_client_expect
 
 module D = Api.Decoders(Decoders_bs.Decode)
 module E = Api.Encoders(Decoders_bs.Encode)
