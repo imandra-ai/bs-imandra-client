@@ -29,17 +29,17 @@ external bufferOff
     -> ([ `data of Node.Buffer.t -> unit] [@bs.string])
     -> Node.string_buffer = "off" [@@bs.send]
 
-type imandraOptions =
+type imandra_options =
   { debug : bool [@bs.optional]
-  ; serverCmd : string [@bs.optional]
+  ; server_cmd : string [@bs.optional]
   } [@@bs.deriving abstract]
 
 type imandraOptionsWithDefaults =
   { debug : bool
-  ; serverCmd : string
+  ; server_cmd : string
   }
 
-module ServerInfo = struct
+module Server_info = struct
   type t =
     { port : int
     ; baseUrl : string
@@ -60,11 +60,11 @@ module ServerInfo = struct
       succeed { port; baseUrl }
   end
 
-  let toFile ?(filename=".imandra-server-info") (t : t) =
+  let to_file ?(filename=".imandra-server-info") (t : t) =
     let j_str = Decoders_bs.Encode.encode_string Encode.t t in
     Node.Fs.writeFileSync filename j_str `utf8
 
-  let fromFile ?(filename=".imandra-server-info") () =
+  let from_file ?(filename=".imandra-server-info") () =
     Node.Fs.readFileSync filename `utf8
     |> Decoders_bs.Decode.decode_string Decode.t
     |> Decoders_util.My_result.map_err (Format.asprintf "%a" Decoders_bs.Decode.pp_error)
@@ -147,12 +147,12 @@ let waitForServer (port : int) : unit Js.Promise.t =
       Js.Promise.resolve ()
     )
 
-let withDefaults (opts : imandraOptions) : imandraOptionsWithDefaults =
+let withDefaults (opts : imandra_options) : imandraOptionsWithDefaults =
   { debug = (match (opts |. debugGet) with | None -> false | Some d -> d)
-  ; serverCmd = (match (opts |. serverCmdGet) with | None -> "imandra-http-server" | Some s -> s)
+  ; server_cmd = (match (opts |. server_cmdGet) with | None -> "imandra-http-server" | Some s -> s)
   }
 
-let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * ServerInfo.t) Js.Promise.t =
+let start (passedOpts : imandra_options) : (Node.Child_process.spawnResult * Server_info.t) Js.Promise.t =
 
   let opts = withDefaults passedOpts in
 
@@ -190,7 +190,7 @@ let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * Serv
       |> Js.Promise.then_ (fun port ->
           (* Always set reason to load the reason parser. Syntax is specified per-call *)
           let args = [|"--non-interactive"; "-reason"; "-port"; (string_of_int port)|] in
-          let np = spawn opts.serverCmd args in
+          let np = spawn opts.server_cmd args in
 
           listenForStartupClose np;
 
@@ -202,7 +202,7 @@ let start (passedOpts : imandraOptions) : (Node.Child_process.spawnResult * Serv
           waitForServer port
           |> Js.Promise.then_ (fun () ->
               unlistenForStartupClose np;
-              resolve (np, ServerInfo.{ port = port;  baseUrl=("http://localhost:" ^ (string_of_int port)) }) [@bs];
+              resolve (np, Server_info.{ port = port;  baseUrl=("http://localhost:" ^ (string_of_int port)) }) [@bs];
               Js.Promise.resolve ();
             )
         )
@@ -239,12 +239,12 @@ let handle_response decoder res =
     )
 
 module Verify = struct
-  let bySrc
+  let by_src
       ?(instancePrinter : Api.Request.printer_details option)
       ?(hints : Api.Request.Hints.t option)
       ~(syntax: Api.src_syntax)
       ~(src : string)
-      (p : ServerInfo.t)
+      (p : Server_info.t)
     : (Api.Response.verify_result, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.verify_req_src = { syntax; src_base64 = (to_base64 src); instance_printer = instancePrinter; hints } in
@@ -254,11 +254,11 @@ module Verify = struct
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_response D.Response.verify_result)
 
-  let byName
+  let by_name
       ?(instancePrinter: Api.Request.printer_details option)
       ?(hints: Api.Request.Hints.t option)
       ~(name : string)
-      (p : ServerInfo.t)
+      (p : Server_info.t)
     : (Api.Response.verify_result, Error.t) Belt.Result.t Js.Promise.t =
     let req : Api.Request.verify_req_name = { name; instance_printer = instancePrinter; hints } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.verify_req_name req) in
@@ -269,10 +269,10 @@ module Verify = struct
 end
 
 module Eval = struct
-  let bySrc
+  let by_src
       ~(syntax: Api.src_syntax)
       ~(src : string)
-      (p : ServerInfo.t)
+      (p : Server_info.t)
     : (unit, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.eval_req_src = { syntax; src_base64 = (to_base64 src) } in
@@ -284,11 +284,11 @@ module Eval = struct
 end
 
 module Instance = struct
-  let bySrc
+  let by_src
       ?(instancePrinter: Api.Request.printer_details option)
       ~(syntax: Api.src_syntax)
       ~(src : string)
-      (p : ServerInfo.t)
+      (p : Server_info.t)
     : (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.instance_req_src = { instance_printer = instancePrinter; syntax; src_base64 = (to_base64 src) } in
@@ -298,10 +298,10 @@ module Instance = struct
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_response D.Response.instance_result)
 
-  let byName
+  let by_name
       ?(instancePrinter: Api.Request.printer_details option)
       ~(name : string)
-      (p : ServerInfo.t)
+      (p : Server_info.t)
     : (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t =
 
     let req : Api.Request.instance_req_name = { name; instance_printer = instancePrinter } in
@@ -312,7 +312,7 @@ module Instance = struct
     |> Js.Promise.then_ (handle_response D.Response.instance_result)
 end
 
-let reset (p : ServerInfo.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
+let reset (p : Server_info.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.baseUrl ^ "/reset"))
       (Fetch.RequestInit.make ~method_:Post ())

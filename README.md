@@ -25,6 +25,6 @@ The client is built with node compatibility in mind, but is not yet packaged for
 
 See the tests for a full lifecyle example, and call to verify.
 
-Also see the [Verified React](https://github.com/AestheticIntegration/verified-react) repo for another example setup - using Jest's `globalSetup` and `globalTeardown` to keep the server alive between test suites, and using `Imandra_client.ServerInfo.from_file` to load the server information in each test suite.
+Also see the [Verified React](https://github.com/AestheticIntegration/verified-react) repo for another example setup - using Jest's `globalSetup` and `globalTeardown` to keep the server alive between test suites, and using `Imandra_client.Server_info.from_file` to load the server information in each test suite.
 
 State is preserved between runs in the Imandra process, as it is inherently stateful. To clear out state to maintain isolation between tests, use `Imandra_client.reset` to reset the state.
