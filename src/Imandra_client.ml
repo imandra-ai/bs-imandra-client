@@ -35,7 +35,7 @@ type imandra_options =
   ; server_cmd : string [@bs.optional]
   } [@@bs.deriving abstract]
 
-type imandraOptionsWithDefaults =
+type imandra_options_with_defaults =
   { debug : bool
   ; server_cmd : string
   }
@@ -152,7 +152,7 @@ let wait_for_server (port : int) : unit Js.Promise.t =
       Js.Promise.resolve ()
     )
 
-let with_defaults (opts : imandra_options) : imandraOptionsWithDefaults =
+let with_defaults (opts : imandra_options) : imandra_options_with_defaults =
   { debug = (match (opts |. debugGet) with | None -> false | Some d -> d)
   ; server_cmd = (match (opts |. server_cmdGet) with | None -> "imandra-http-server" | Some s -> s)
   }
