@@ -32,11 +32,13 @@ external buffer_off
 type imandra_options =
   { debug : bool [@bs.optional]
   ; server_cmd : string [@bs.optional]
+  ; requires : string array [@bs.optional]
   } [@@bs.deriving abstract]
 
 type imandra_options_with_defaults =
   { debug : bool
   ; server_cmd : string
+  ; requires : string array
   }
 
 module Server_info = struct
@@ -154,6 +156,7 @@ let wait_for_server (port : int) : unit Js.Promise.t =
 let with_defaults (opts : imandra_options) : imandra_options_with_defaults =
   { debug = (match (opts |. debugGet) with | None -> false | Some d -> d)
   ; server_cmd = (match (opts |. server_cmdGet) with | None -> "imandra-http-server" | Some s -> s)
+  ; requires = (match (opts |. requiresGet) with | None -> [||] | Some s -> s )
   }
 
 let start (passed_opts : imandra_options) : (Node.Child_process.spawnResult * Server_info.t) Js.Promise.t =
@@ -193,7 +196,8 @@ let start (passed_opts : imandra_options) : (Node.Child_process.spawnResult * Se
       get_port ()
       |> Js.Promise.then_ (fun port ->
           (* Always set reason to load the reason parser. Syntax is specified per-call *)
-          let args = [|"--non-interactive"; "-reason"; "-port"; (string_of_int port)|] in
+          let requires = Belt.Array.concatMany (Belt.Array.map opts.requires (fun x -> [|"-require"; x|])) in
+          let args = Belt.Array.concat [|"--non-interactive"; "-reason"; "-port"; (string_of_int port)|] requires in
           let np = spawn opts.server_cmd args in
 
           listen_for_startup_close np;

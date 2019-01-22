@@ -5,6 +5,7 @@ module Api = Imandra_client_api
 type imandra_options =
   { debug : bool [@bs.optional]
   ; server_cmd : string [@bs.optional]
+  ; requires : string [@bs.optional]
   } [@@bs.deriving abstract]
 
 module Server_info : sig
