@@ -4,14 +4,15 @@
   "description": "",
   "main": "src/Imandra_client.bs.js",
   "scripts": {
-    "test": "jest -i",
+    "test": "npm run build && jest -i",
     "build": "bsb -make-world",
+    "clean": "bsb -clean-world",
     "watch": "bsb -make-world -w"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@glennsl/bs-json": "^3.0.0",
+    "bs-decoders": "https://github.com/mattjbray/ocaml-decoders.git#27deef2c5d32366950955ea96a2ada3ed12e6f5e",
     "bs-fetch": "^0.3.1",
     "bs-platform": "^4.0.7",
     "isomorphic-fetch": "^2.2.1",
