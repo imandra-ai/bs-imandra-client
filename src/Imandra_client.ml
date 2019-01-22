@@ -1,6 +1,6 @@
 [%raw "require('isomorphic-fetch')"]
 external spawn : string -> string array -> Node.Child_process.spawnResult = "" [@@bs.module "child_process"]
-external getPort : unit -> int Js.Promise.t = "getPortPromise" [@@bs.module "portfinder"]
+external get_port : unit -> int Js.Promise.t = "getPortPromise" [@@bs.module "portfinder"]
 
 module Api = Imandra_client_api
 
@@ -9,22 +9,22 @@ module E = Api.Encoders(Decoders_bs.Encode)
 
 let function_name = [%raw fun f -> "{return f.name}"]
 
-external spawnOn
+external spawn_on
   : Node.Child_process.spawnResult
     -> ([ `close of int -> unit ] [@bs.string])
     -> Node.Child_process.spawnResult = "on" [@@bs.send]
 
-external spawnOff
+external spawn_off
   : Node.Child_process.spawnResult
     -> ([ `close of int -> unit ] [@bs.string])
     -> Node.Child_process.spawnResult = "off" [@@bs.send]
 
-external bufferOn
+external buffer_on
   : Node.string_buffer
     -> ([ `data of Node.Buffer.t -> unit] [@bs.string])
     -> Node.string_buffer = "on" [@@bs.send]
 
-external bufferOff
+external buffer_off
   : Node.string_buffer
     -> ([ `data of Node.Buffer.t -> unit] [@bs.string])
     -> Node.string_buffer = "off" [@@bs.send]
@@ -73,13 +73,13 @@ module Server_info = struct
     Node.Fs.unlinkSync filename;
 end
 
-external bufferToStringWithEncoding : Node.Buffer.t ->
+external buffer_to_string_with_encoding : Node.Buffer.t ->
   ([ `ascii  | `utf8  | `utf16le  | `usc2  | `base64  | `latin1 | `binary  | `hex ] [@bs.string]) ->
   string = "toString" [@@bs.send]
 
 let to_base64 (s : string) =
   let b = Node.Buffer.fromString s in
-  (bufferToStringWithEncoding b `base64)
+  (buffer_to_string_with_encoding b `base64)
 
 let from_base64 (s : string) =
   Node.Buffer.fromStringWithEncoding s `base64
@@ -98,19 +98,19 @@ module Error = struct
     Format.asprintf "%a" pp e
 end
 
-let printStreamsDebug (np : Node.Child_process.spawnResult) =
+let print_streams_debug (np : Node.Child_process.spawnResult) =
   let props = Node.Child_process.readAs np in
   let so = props##stdout |> Js.Null.getExn in
   let se = props##stderr |> Js.Null.getExn in
 
   ignore
-    (so |. bufferOn (`data (fun b ->
+    (so |. buffer_on (`data (fun b ->
          let s = Node.Buffer.toString b in
          Js.Console.log (Printf.sprintf "STDOUT: %s" s)
        )));
 
   ignore
-    ( se |. bufferOn (`data (fun b ->
+    ( se |. buffer_on (`data (fun b ->
           let s = Node.Buffer.toString b in
           Js.Console.log (Printf.sprintf "STDERR: %s" s)
         )))
@@ -132,9 +132,9 @@ let timeout ms : unit Js.Promise.t =
       Js.Promise.resolve ()
     )
 
-let waitForServer (port : int) : unit Js.Promise.t =
+let wait_for_server (port : int) : unit Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
-      let rec checkStatus () =
+      let rec check_status () =
         Fetch.fetch (Printf.sprintf "%s/status" (makeBaseUrl port))
         |> Js.Promise.then_ (fun res ->
             resolve res [@bs];
@@ -142,70 +142,70 @@ let waitForServer (port : int) : unit Js.Promise.t =
           )
         |> Js.Promise.catch (fun _ ->
             (timeout 1000)
-            |> Js.Promise.then_ checkStatus
+            |> Js.Promise.then_ check_status
           )
 
-      in ignore (checkStatus ())
+      in ignore (check_status ())
     )
   |> Js.Promise.then_ (fun _ ->
       Js.Promise.resolve ()
     )
 
-let withDefaults (opts : imandra_options) : imandraOptionsWithDefaults =
+let with_defaults (opts : imandra_options) : imandraOptionsWithDefaults =
   { debug = (match (opts |. debugGet) with | None -> false | Some d -> d)
   ; server_cmd = (match (opts |. server_cmdGet) with | None -> "imandra-http-server" | Some s -> s)
   }
 
-let start (passedOpts : imandra_options) : (Node.Child_process.spawnResult * Server_info.t) Js.Promise.t =
+let start (passed_opts : imandra_options) : (Node.Child_process.spawnResult * Server_info.t) Js.Promise.t =
 
-  let opts = withDefaults passedOpts in
+  let opts = with_defaults passed_opts in
 
-  let startupExitOutputCb = ref (fun _ -> ()) in
-  let startupExitSpawnCb = ref (fun _ -> ()) in
+  let startup_exit_output_cb = ref (fun _ -> ()) in
+  let startup_exit_spawn_cb = ref (fun _ -> ()) in
 
   Js.Promise.make (fun ~resolve ~reject ->
-      let listenForStartupClose (np : Node.Child_process.spawnResult) =
+      let listen_for_startup_close (np : Node.Child_process.spawnResult) =
         let props = Node.Child_process.readAs np in
         let so = props##stdout |> Js.Null.getExn in
         let seText = ref "" in
-        startupExitOutputCb :=
+        startup_exit_output_cb :=
           (fun b ->
              let s = Node.Buffer.toString b in
              seText := Js.String.concat !seText s;
           );
 
-        startupExitSpawnCb :=
+        startup_exit_spawn_cb :=
           (fun code ->
              Js.Console.error !seText;
              reject (Failure (Printf.sprintf "Imandra process exited during startup (code: %d)." code)) [@bs]);
 
-        (so |. bufferOn (`data !startupExitOutputCb) |> ignore);
-        (np |. spawnOn (`close !startupExitSpawnCb) |> ignore);
+        (so |. buffer_on (`data !startup_exit_output_cb) |> ignore);
+        (np |. spawn_on (`close !startup_exit_spawn_cb) |> ignore);
       in
 
-      let unlistenForStartupClose (np : Node.Child_process.spawnResult) =
+      let unlisten_for_startup_close (np : Node.Child_process.spawnResult) =
         let props = Node.Child_process.readAs np in
         let so = props##stdout |> Js.Null.getExn in
-        so |. bufferOff (`data !startupExitOutputCb) |> ignore;
-        np |. spawnOff (`close !startupExitSpawnCb) |> ignore;
+        so |. buffer_off (`data !startup_exit_output_cb) |> ignore;
+        np |. spawn_off (`close !startup_exit_spawn_cb) |> ignore;
       in
 
-      getPort ()
+      get_port ()
       |> Js.Promise.then_ (fun port ->
           (* Always set reason to load the reason parser. Syntax is specified per-call *)
           let args = [|"--non-interactive"; "-reason"; "-port"; (string_of_int port)|] in
           let np = spawn opts.server_cmd args in
 
-          listenForStartupClose np;
+          listen_for_startup_close np;
 
           if (opts.debug) then
-            printStreamsDebug np
+            print_streams_debug np
           else
             ();
 
-          waitForServer port
+          wait_for_server port
           |> Js.Promise.then_ (fun () ->
-              unlistenForStartupClose np;
+              unlisten_for_startup_close np;
               resolve (np, Server_info.{ port = port;  base_url=("http://localhost:" ^ (string_of_int port)) }) [@bs];
               Js.Promise.resolve ();
             )
@@ -213,17 +213,17 @@ let start (passedOpts : imandra_options) : (Node.Child_process.spawnResult * Ser
       |> ignore
     )
 
-external spawnKill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@bs.send]
+external spawn_kill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@bs.send]
 
 let stop (np : Node.Child_process.spawnResult) : unit Js.Promise.t =
   Js.Promise.make (fun ~resolve ~reject:_ ->
       let handler = ref (fun _ -> ()) in
       handler := (fun code ->
-          np |. spawnOff (`close !handler) |> ignore;
+          np |. spawn_off (`close !handler) |> ignore;
           resolve code [@bs];
         );
-      np |. spawnOn (`close !handler) |> ignore;
-      np |. spawnKill 2 |> ignore;
+      np |. spawn_on (`close !handler) |> ignore;
+      np |. spawn_kill 2 |> ignore;
     )
   |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
 
