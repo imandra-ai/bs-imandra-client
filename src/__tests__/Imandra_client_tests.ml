@@ -132,9 +132,9 @@ let () =
       Imandra_client.Eval.by_src ip ~syntax ~src
       |> Js.Promise.then_ (function
           | Belt.Result.Ok () ->
-            let instancePrinter = Api.Request.{ name = "print_t"; cx_var_name = "a" } in
-            print_endline instancePrinter.name;
-            Imandra_client.Instance.by_src ip ~instancePrinter ~syntax ~src:"fun a -> a.x + 97 = 100"
+            let instance_printer = Api.Request.{ name = "print_t"; cx_var_name = "a" } in
+            print_endline instance_printer.name;
+            Imandra_client.Instance.by_src ip ~instance_printer ~syntax ~src:"fun a -> a.x + 97 = 100"
             |> Js.Promise.then_ (function
                 | Belt.Result.Ok (Api.Response.I_sat { instance }) ->
                   Js.Promise.resolve (Expect.toEqual (Some "x is 3") (`Just instance.printed ))

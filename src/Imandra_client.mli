@@ -10,7 +10,7 @@ type imandra_options =
 module Server_info : sig
   type t =
     { port : int
-    ; baseUrl : string
+    ; base_url : string
     }
 
   module Encode : sig
@@ -44,14 +44,14 @@ end
 
 module Verify : sig
   val by_src
-    : ?instancePrinter:Api.Request.printer_details
+    : ?instance_printer:Api.Request.printer_details
     -> ?hints:Api.Request.Hints.t
     -> syntax:Api.src_syntax -> src:string
     -> Server_info.t
     -> (Api.Response.verify_result, Error.t) Belt.Result.t Js.Promise.t
 
   val by_name
-    : ?instancePrinter:Api.Request.printer_details
+    : ?instance_printer:Api.Request.printer_details
     -> ?hints:Api.Request.Hints.t
     -> name:string
     -> Server_info.t
@@ -68,14 +68,14 @@ end
 
 module Instance : sig
   val by_src
-    : ?instancePrinter:Api.Request.printer_details
+    : ?instance_printer:Api.Request.printer_details
     -> syntax:Api.src_syntax
     -> src:string
     -> Server_info.t
     -> (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t
 
   val by_name
-    : ?instancePrinter:Api.Request.printer_details
+    : ?instance_printer:Api.Request.printer_details
     -> name:string
     -> Server_info.t
     -> (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t
