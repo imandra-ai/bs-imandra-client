@@ -11,7 +11,7 @@ let print_with_instance (m : I.Api.Response.with_instance) =
 let print_with_unknown_reason (m : I.Api.Response.with_unknown_reason) =
   Printf.sprintf "reason: %s" m.unknown_reason
 
-let toBeProved (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) =
+let to_be_proved (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) =
   match res with
   | Belt.Result.Ok(I.Api.Response.V_proved) ->
     Jest.pass
@@ -22,7 +22,7 @@ let toBeProved (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) =
   | Belt.Result.Error(e) ->
     Jest.fail (Format.asprintf "Expected: proved, Got: ERROR\n\n%a" I.Error.pp e)
 
-let toBeUnknown (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) =
+let to_be_unknown (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) =
   match res with
   | Belt.Result.Ok(I.Api.Response.V_proved) ->
     Jest.fail (Format.asprintf "Expected: unknown, Got: proved")
@@ -33,7 +33,7 @@ let toBeUnknown (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) 
   | Belt.Result.Error(e) ->
     Jest.fail (Format.asprintf "Expected: unknown, Got: ERROR\n\n%a" I.Error.pp e)
 
-let toBeRefuted (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) =
+let to_be_refuted (res : (I.Api.Response.verify_result, I.Error.t) Belt.Result.t) =
   match res with
   | Belt.Result.Ok(I.Api.Response.V_proved) ->
     Jest.fail (Format.asprintf "Expected: refuted, Got: proved")
