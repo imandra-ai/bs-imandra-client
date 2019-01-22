@@ -11,7 +11,7 @@ let () =
   beforeAllPromise ~timeout:20000 (fun () ->
       let open Imandra_client in
       Imandra_client.start
-        (imandra_options ~server_cmd:"imandra-http-server-dev"
+        (imandra_options ~server_cmd:"imandra-http-server"
            ~debug:true ())
       |> Js.Promise.then_ (fun (np, isi) ->
           running_node_process := Some np;
