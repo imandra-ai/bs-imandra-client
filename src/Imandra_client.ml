@@ -81,6 +81,10 @@ let to_base64 (s : string) =
   let b = Node.Buffer.fromString s in
   (bufferToStringWithEncoding b `base64)
 
+let from_base64 (s : string) =
+  Node.Buffer.fromStringWithEncoding s `base64
+  |> Node.Buffer.toString
+
 module Error = struct
   type t =
     | Decoder_error of Decoders_bs.Decode.error

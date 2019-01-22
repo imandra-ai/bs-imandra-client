@@ -41,6 +41,9 @@ module Error : sig
   val pp_str : t -> string
 end
 
+val to_base64 : string -> string
+
+val from_base64 : string -> string
 
 module Verify : sig
   val by_src
