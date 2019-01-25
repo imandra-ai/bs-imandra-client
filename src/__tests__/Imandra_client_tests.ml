@@ -175,8 +175,9 @@ let () =
 let () =
   afterAllAsync ~timeout:20000 (fun finish ->
       match !running_node_process with
-      | Some np ->
-        Imandra_client.stop np
+      | Some _np ->
+        let ip = !running_imandra_server_info |> Belt.Option.getExn |> Belt.Result.getExn in
+        Imandra_client.shutdown ip
         |> Js.Promise.then_ (fun _ ->
             running_node_process := None;
             running_imandra_server_info := None;

@@ -217,21 +217,7 @@ let start (passed_opts : imandra_options) : (Node.Child_process.spawnResult * Se
       |> ignore
     )
 
-external spawn_kill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@bs.send]
-
-let stop (np : Node.Child_process.spawnResult) : unit Js.Promise.t =
-  Js.Promise.make (fun ~resolve ~reject:_ ->
-      let handler = ref (fun _ -> ()) in
-      handler := (fun code ->
-          np |. spawn_off (`close !handler) |> ignore;
-          resolve code [@bs];
-        );
-      np |. spawn_on (`close !handler) |> ignore;
-      np |. spawn_kill 2 |> ignore;
-    )
-  |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
-
-let handle_response decoder res =
+let handle_json_response decoder res =
   let status = Fetch.Response.status res in
   Fetch.Response.json res
   |> Js.Promise.then_ (fun json ->
@@ -245,6 +231,13 @@ let handle_response decoder res =
         |> (fun r -> Belt.Result.flatMap r (fun decoded -> Error (Error.Imandra_error decoded)))
         |> Js.Promise.resolve
     )
+
+let check_ok res : (unit, string) Belt.Result.t Js.Promise.t =
+  let status = Fetch.Response.status res in
+  if status = 200 then
+    Js.Promise.resolve (Belt.Result.Ok ())
+  else
+    Js.Promise.resolve (Belt.Result.Error (Printf.sprintf "Recieved %d status" status))
 
 module Verify = struct
   let by_src
@@ -260,7 +253,7 @@ module Verify = struct
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.base_url ^ "/verify/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (handle_response D.Response.verify_result)
+    |> Js.Promise.then_ (handle_json_response D.Response.verify_result)
 
   let by_name
       ?(instance_printer: Api.Request.printer_details option)
@@ -273,7 +266,7 @@ module Verify = struct
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.base_url ^ "/verify/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (handle_response D.Response.verify_result)
+    |> Js.Promise.then_ (handle_json_response D.Response.verify_result)
 end
 
 module Eval = struct
@@ -288,7 +281,7 @@ module Eval = struct
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.base_url ^ "/eval/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
+    |> Js.Promise.then_ (handle_json_response (Decoders_bs.Decode.succeed ()))
 end
 
 module Instance = struct
@@ -304,7 +297,7 @@ module Instance = struct
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.base_url ^ "/instance/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (handle_response D.Response.instance_result)
+    |> Js.Promise.then_ (handle_json_response D.Response.instance_result)
 
   let by_name
       ?(instance_printer: Api.Request.printer_details option)
@@ -317,11 +310,30 @@ module Instance = struct
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.base_url ^ "/instance/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
-    |> Js.Promise.then_ (handle_response D.Response.instance_result)
+    |> Js.Promise.then_ (handle_json_response D.Response.instance_result)
 end
 
 let reset (p : Server_info.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
-    Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.base_url ^ "/reset"))
-      (Fetch.RequestInit.make ~method_:Post ())
-    |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
+  Fetch.fetchWithRequestInit
+    (Fetch.Request.make (p.base_url ^ "/reset"))
+    (Fetch.RequestInit.make ~method_:Post ())
+  |> Js.Promise.then_ (handle_json_response (Decoders_bs.Decode.succeed ()))
+
+let status (p : Server_info.t) : (unit, string) Belt.Result.t Js.Promise.t =
+  Fetch.fetchWithRequestInit
+    (Fetch.Request.make (p.base_url ^ "/status"))
+    (Fetch.RequestInit.make ~method_:Get ())
+  |> Js.Promise.then_ check_ok
+
+let shutdown (p : Server_info.t) : (unit, string) Belt.Result.t Js.Promise.t =
+  Fetch.fetchWithRequestInit
+    (Fetch.Request.make (p.base_url ^ "/shutdown"))
+    (Fetch.RequestInit.make ~method_:Post ())
+  |> Js.Promise.then_ check_ok
+  |> Js.Promise.then_ (fun s -> Js.Promise.make (fun ~resolve ~reject:_ ->
+      Js.Global.setTimeout (fun () ->
+          resolve s [@bs];
+        ) 200 |> ignore))
+  |> Js.Promise.then_ (fun _ ->
+      Js.Promise.resolve (Belt.Result.Ok ())
+    )
