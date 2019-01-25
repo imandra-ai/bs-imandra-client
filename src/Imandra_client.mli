@@ -30,8 +30,6 @@ end
 
 val start : imandra_options -> (Node.Child_process.spawnResult * Server_info.t) Js.Promise.t
 
-val stop : Node.Child_process.spawnResult -> unit Js.Promise.t
-
 module Error : sig
   type t =
     | Decoder_error of Decoders_bs.Decode.error

@@ -219,18 +219,6 @@ let start (passed_opts : imandra_options) : (Node.Child_process.spawnResult * Se
 
 external spawn_kill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@bs.send]
 
-let stop (np : Node.Child_process.spawnResult) : unit Js.Promise.t =
-  Js.Promise.make (fun ~resolve ~reject:_ ->
-      let handler = ref (fun _ -> ()) in
-      handler := (fun code ->
-          np |. spawn_off (`close !handler) |> ignore;
-          resolve code [@bs];
-        );
-      np |. spawn_on (`close !handler) |> ignore;
-      np |. spawn_kill 2 |> ignore;
-    )
-  |> Js.Promise.then_ (fun _ -> Js.Promise.resolve ())
-
 let handle_json_response decoder res =
   let status = Fetch.Response.status res in
   Fetch.Response.json res
