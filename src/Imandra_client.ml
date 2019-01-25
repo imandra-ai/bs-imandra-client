@@ -335,7 +335,7 @@ let shutdown (p : Server_info.t) : (unit, string) Belt.Result.t Js.Promise.t =
   |> Js.Promise.then_ (fun s -> Js.Promise.make (fun ~resolve ~reject:_ ->
       Js.Global.setTimeout (fun () ->
           resolve s [@bs];
-        ) 1200 |> ignore))
+        ) 200 |> ignore))
   |> Js.Promise.then_ (fun _ ->
       Js.Promise.resolve (Belt.Result.Ok ())
     )
