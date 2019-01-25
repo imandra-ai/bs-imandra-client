@@ -321,7 +321,7 @@ module Instance = struct
 end
 
 let reset (p : Server_info.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
-    Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.base_url ^ "/reset"))
-      (Fetch.RequestInit.make ~method_:Post ())
-    |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
+  Fetch.fetchWithRequestInit
+    (Fetch.Request.make (p.base_url ^ "/reset"))
+    (Fetch.RequestInit.make ~method_:Post ())
+  |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
