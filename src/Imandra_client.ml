@@ -246,6 +246,13 @@ let handle_json_response decoder res =
         |> Js.Promise.resolve
     )
 
+let check_ok res : (unit, string) Belt.Result.t Js.Promise.t =
+  let status = Fetch.Response.status res in
+  if status = 200 then
+    Js.Promise.resolve (Belt.Result.Ok ())
+  else
+    Js.Promise.resolve (Belt.Result.Error (Printf.sprintf "Recieved %d status" status))
+
 module Verify = struct
   let by_src
       ?(instance_printer : Api.Request.printer_details option)
@@ -326,8 +333,21 @@ let reset (p : Server_info.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
     (Fetch.RequestInit.make ~method_:Post ())
   |> Js.Promise.then_ (handle_json_response (Decoders_bs.Decode.succeed ()))
 
-let shutdown (p : Server_info.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
+let status (p : Server_info.t) : (unit, string) Belt.Result.t Js.Promise.t =
+  Fetch.fetchWithRequestInit
+    (Fetch.Request.make (p.base_url ^ "/status"))
+    (Fetch.RequestInit.make ~method_:Get ())
+  |> Js.Promise.then_ check_ok
+
+let shutdown (p : Server_info.t) : (unit, string) Belt.Result.t Js.Promise.t =
   Fetch.fetchWithRequestInit
     (Fetch.Request.make (p.base_url ^ "/shutdown"))
     (Fetch.RequestInit.make ~method_:Post ())
-  |> Js.Promise.then_ (handle_response (Decoders_bs.Decode.succeed ()))
+  |> Js.Promise.then_ check_ok
+  |> Js.Promise.then_ (fun s -> Js.Promise.make (fun ~resolve ~reject:_ ->
+      Js.Global.setTimeout (fun () ->
+          resolve s [@bs];
+        ) 1200 |> ignore))
+  |> Js.Promise.then_ (fun _ ->
+      Js.Promise.resolve (Belt.Result.Ok ())
+    )

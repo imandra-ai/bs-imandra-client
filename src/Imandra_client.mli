@@ -88,3 +88,11 @@ end
 val reset
   : Server_info.t
   -> (unit, Error.t) Belt.Result.t Js.Promise.t
+
+val status
+  : Server_info.t
+  -> (unit, string) Belt.Result.t Js.Promise.t
+
+val shutdown
+  : Server_info.t
+  -> (unit, string) Belt.Result.t Js.Promise.t
