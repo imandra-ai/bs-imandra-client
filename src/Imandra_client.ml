@@ -217,8 +217,6 @@ let start (passed_opts : imandra_options) : (Node.Child_process.spawnResult * Se
       |> ignore
     )
 
-external spawn_kill : Node.Child_process.spawnResult -> int -> unit = "kill" [@@bs.send]
-
 let handle_json_response decoder res =
   let status = Fetch.Response.status res in
   Fetch.Response.json res
