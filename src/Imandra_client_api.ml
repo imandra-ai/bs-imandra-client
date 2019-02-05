@@ -100,13 +100,19 @@ module Response = struct
   type error =
     { error : string }
 
+  type upto =
+    | Upto_steps of int
+    | Upto_bound of int
+
   type instance_result =
     | I_unsat
+    | I_unsat_upto of upto
     | I_sat of with_instance
     | I_unknown of with_unknown_reason
 
   type verify_result =
     | V_proved
+    | V_proved_upto of upto
     | V_refuted of with_instance
     | V_unknown of with_unknown_reason
 end
@@ -242,6 +248,12 @@ module Decoders(D: Decoders.Decode.S) = struct
       (field "unknown_reason" string) >>= fun unknown_reason ->
       succeed { unknown_reason }
 
+    let upto : upto decoder =
+      one_of
+        [ ("steps", (field "steps" int) >|= (fun x -> Upto_steps x))
+        ; ("bound", (field "bound" int) >|= (fun x -> Upto_bound x))
+        ]
+
     let error : my_error decoder =
       (field "error" string) >>= fun e ->
       succeed { error = e }
@@ -249,6 +261,7 @@ module Decoders(D: Decoders.Decode.S) = struct
     let verify_result : verify_result decoder =
       (field "type" string) >>= function
       | "proved" -> succeed V_proved
+      | "proved_upto" -> (field "body" upto) >|= (fun x -> V_proved_upto x)
       | "refuted" -> (field "body" with_instance) >|= (fun x -> V_refuted x)
       | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> V_unknown x)
       | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
@@ -256,6 +269,7 @@ module Decoders(D: Decoders.Decode.S) = struct
     let instance_result : instance_result decoder =
       (field "type" string) >>= function
       | "unsat" -> succeed I_unsat
+      | "unsat_upto" -> (field "body" upto) >|= (fun x -> I_unsat_upto x)
       | "sat" -> (field "body" with_instance) >|= (fun x -> I_sat x)
       | "unknown" -> (field "body" with_unknown_reason) >|= (fun x -> I_unknown x)
       | _ -> fail "Expected 'verified', 'refuted' or 'unknown'"
@@ -381,13 +395,21 @@ module Encoders(E: D.Encode.S) = struct
     let error_response (x : error) =
       obj [ ("error", string x.error) ]
 
+    let upto = function
+      | Upto_steps s ->
+         obj [ ("steps", int s)]
+      | Upto_bound b ->
+         obj [ ("bound", int b)]
+
     let verify_result : verify_result encoder  = function
       | V_proved -> obj [ ("type", string "proved") ]
+      | V_proved_upto x -> obj [ ("type", string "proved_upto"); ("body", upto x) ]
       | V_refuted x -> obj [ ("type", string "refuted"); ("body", with_instance x) ]
       | V_unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
 
     let instance_result : instance_result encoder = function
       | I_unsat -> obj [ ("type", string "unsat") ]
+      | I_unsat_upto x -> obj [ ("type", string "unsat_upto"); ("body", upto x) ]
       | I_sat x -> obj [ ("type", string "sat"); ("body", with_instance x) ]
       | I_unknown x -> obj [ ("type", string "unknown"); ("body", with_unknown_reason x) ]
   end
