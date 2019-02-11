@@ -19,8 +19,8 @@
     "portfinder": "^1.0.19"
   },
   "devDependencies": {
-    "@glennsl/bs-jest": "^0.4.5",
-    "jest": "^23.6.0"
+    "jest": "^23.6.0",
+    "@glennsl/bs-jest": "^0.4.5"
   },
   "browser": {
     "fs": false
