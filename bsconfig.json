@@ -11,9 +11,9 @@
   },
   "suffix": ".bs.js",
   "bs-dependencies": [
-      "bs-fetch",
-      "@glennsl/bs-jest",
-      "bs-decoders"
+    "bs-fetch",
+    "@glennsl/bs-jest",
+    "bs-decoders"
   ],
   "warnings": {
     "error" : "+101"
