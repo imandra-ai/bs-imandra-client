@@ -43,23 +43,20 @@ type imandra_options_with_defaults =
 
 module Server_info = struct
   type t =
-    { port : int
-    ; base_url : string
+    { url : string
     }
 
   module Encode = struct
     open Decoders_bs.Encode
     let t t =
-      obj [ ("port", int t.port)
-          ; ("base_url", string t.base_url)]
+      obj [ ("url", string t.url)]
   end
 
   module Decode = struct
     open Decoders_bs.Decode
     let t : t decoder =
-      field "port" int >>= fun port ->
-      field "base_url" string >>= fun base_url ->
-      succeed { port; base_url }
+      field "url" string >>= fun url ->
+      succeed { url }
   end
 
   let to_file ?(filename=".imandra-server-info") (t : t) =
@@ -210,7 +207,7 @@ let start (passed_opts : imandra_options) : (Node.Child_process.spawnResult * Se
           wait_for_server port
           |> Js.Promise.then_ (fun () ->
               unlisten_for_startup_close np;
-              resolve (np, Server_info.{ port = port;  base_url=("http://localhost:" ^ (string_of_int port)) }) [@bs];
+              resolve (np, Server_info.{ url=("http://localhost:" ^ (string_of_int port)) }) [@bs];
               Js.Promise.resolve ();
             )
         )
@@ -251,7 +248,7 @@ module Verify = struct
     let req : Api.Request.verify_req_src = { syntax; src_base64 = (to_base64 src); instance_printer = instance_printer; hints } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.verify_req_src req) in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.base_url ^ "/verify/by-src"))
+      (Fetch.Request.make (p.url ^ "/verify/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_json_response D.Response.verify_result)
 
@@ -264,7 +261,7 @@ module Verify = struct
     let req : Api.Request.verify_req_name = { name; instance_printer = instance_printer; hints } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.verify_req_name req) in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.base_url ^ "/verify/by-name"))
+      (Fetch.Request.make (p.url ^ "/verify/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_json_response D.Response.verify_result)
 end
@@ -279,7 +276,7 @@ module Eval = struct
     let req : Api.Request.eval_req_src = { syntax; src_base64 = (to_base64 src) } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.eval_req_src req) in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.base_url ^ "/eval/by-src"))
+      (Fetch.Request.make (p.url ^ "/eval/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_json_response (Decoders_bs.Decode.succeed ()))
 end
@@ -295,7 +292,7 @@ module Instance = struct
     let req : Api.Request.instance_req_src = { instance_printer = instance_printer; syntax; src_base64 = (to_base64 src) } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.instance_req_src req) in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.base_url ^ "/instance/by-src"))
+      (Fetch.Request.make (p.url ^ "/instance/by-src"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_json_response D.Response.instance_result)
 
@@ -308,26 +305,26 @@ module Instance = struct
     let req : Api.Request.instance_req_name = { name; instance_printer = instance_printer } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.instance_req_name req) in
     Fetch.fetchWithRequestInit
-      (Fetch.Request.make (p.base_url ^ "/instance/by-name"))
+      (Fetch.Request.make (p.url ^ "/instance/by-name"))
       (Fetch.RequestInit.make ~method_:Post ~body ())
     |> Js.Promise.then_ (handle_json_response D.Response.instance_result)
 end
 
 let reset (p : Server_info.t) : (unit, Error.t) Belt.Result.t Js.Promise.t =
   Fetch.fetchWithRequestInit
-    (Fetch.Request.make (p.base_url ^ "/reset"))
+    (Fetch.Request.make (p.url ^ "/reset"))
     (Fetch.RequestInit.make ~method_:Post ())
   |> Js.Promise.then_ (handle_json_response (Decoders_bs.Decode.succeed ()))
 
 let status (p : Server_info.t) : (unit, string) Belt.Result.t Js.Promise.t =
   Fetch.fetchWithRequestInit
-    (Fetch.Request.make (p.base_url ^ "/status"))
+    (Fetch.Request.make (p.url ^ "/status"))
     (Fetch.RequestInit.make ~method_:Get ())
   |> Js.Promise.then_ check_ok
 
 let shutdown (p : Server_info.t) : (unit, string) Belt.Result.t Js.Promise.t =
   Fetch.fetchWithRequestInit
-    (Fetch.Request.make (p.base_url ^ "/shutdown"))
+    (Fetch.Request.make (p.url ^ "/shutdown"))
     (Fetch.RequestInit.make ~method_:Post ())
   |> Js.Promise.then_ check_ok
   |> Js.Promise.then_ (fun s -> Js.Promise.make (fun ~resolve ~reject:_ ->

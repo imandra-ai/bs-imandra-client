@@ -10,8 +10,7 @@ type imandra_options =
 
 module Server_info : sig
   type t =
-    { port : int
-    ; base_url : string
+    { url : string
     }
 
   module Encode : sig
