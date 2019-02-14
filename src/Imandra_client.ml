@@ -284,12 +284,13 @@ end
 module Instance = struct
   let by_src
       ?(instance_printer: Api.Request.printer_details option)
+      ?(hints: Api.Request.Hints.t option)
       ~(syntax: Api.src_syntax)
       ~(src : string)
       (p : Server_info.t)
     : (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t =
 
-    let req : Api.Request.instance_req_src = { instance_printer = instance_printer; syntax; src_base64 = (to_base64 src) } in
+    let req : Api.Request.instance_req_src = { instance_printer = instance_printer; syntax; src_base64 = (to_base64 src); hints } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.instance_req_src req) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.url ^ "/instance/by-src"))
@@ -298,11 +299,12 @@ module Instance = struct
 
   let by_name
       ?(instance_printer: Api.Request.printer_details option)
+      ?(hints: Api.Request.Hints.t option)
       ~(name : string)
       (p : Server_info.t)
     : (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t =
 
-    let req : Api.Request.instance_req_name = { name; instance_printer = instance_printer } in
+    let req : Api.Request.instance_req_name = { name; instance_printer = instance_printer; hints } in
     let body = Fetch.BodyInit.make (Decoders_bs.Encode.encode_string E.Request.instance_req_name req) in
     Fetch.fetchWithRequestInit
       (Fetch.Request.make (p.url ^ "/instance/by-name"))
