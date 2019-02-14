@@ -70,6 +70,7 @@ end
 module Instance : sig
   val by_src
     : ?instance_printer:Api.Request.printer_details
+    -> ?hints:Api.Request.Hints.t
     -> syntax:Api.src_syntax
     -> src:string
     -> Server_info.t
@@ -77,6 +78,7 @@ module Instance : sig
 
   val by_name
     : ?instance_printer:Api.Request.printer_details
+    -> ?hints:Api.Request.Hints.t
     -> name:string
     -> Server_info.t
     -> (Api.Response.instance_result, Error.t) Belt.Result.t Js.Promise.t

@@ -64,11 +64,13 @@ module Request = struct
     { syntax : src_syntax
     ; src_base64 : string
     ; instance_printer : printer_details option
+    ; hints : Hints.t option
     }
 
   type instance_req_name =
     { name : string
     ; instance_printer : printer_details option
+    ; hints : Hints.t option
     }
 
   type eval_req_src =
@@ -192,24 +194,30 @@ module Decoders(D: Decoders.Decode.S) = struct
       (field "src_base64" string) >>= fun src_base64 ->
       (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
       (field_opt "hints" Hints.t) >>= fun hints ->
-      succeed Request.{ syntax; src_base64; instance_printer; hints }
+      let r : Request.verify_req_src = Request.{ syntax; src_base64; instance_printer; hints } in
+      succeed r
 
     let verify_req_name : Request.verify_req_name decoder =
       (field "name" string) >>= fun name ->
       (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
       (field_opt "hints" Hints.t) >>= fun hints ->
-      succeed Request.{ name; instance_printer; hints }
+      let r : Request.verify_req_name = Request.{ name; instance_printer; hints } in
+      succeed r
 
     let instance_req_src : Request.instance_req_src decoder =
       (field "syntax" src_syntax) >>= fun syntax ->
       (field "src_base64" string) >>= fun src_base64 ->
       (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
-      succeed Request.{ syntax; src_base64; instance_printer }
+      (field_opt "hints" Hints.t) >>= fun hints ->
+      let r : Request.instance_req_src = Request.{ syntax; src_base64; instance_printer; hints } in
+      succeed r
 
     let instance_req_name : Request.instance_req_name decoder =
       (field "name" string) >>= fun name ->
       (field_opt "instance_printer" printer_details) >>= fun instance_printer ->
-      succeed Request.{ name; instance_printer }
+      (field_opt "hints" Hints.t) >>= fun hints ->
+      let r : Request.instance_req_name = Request.{ name; instance_printer; hints } in
+      succeed r
 
     let eval_req_src : Request.eval_req_src decoder =
       (field "syntax" src_syntax) >>= fun syntax ->
@@ -345,24 +353,30 @@ module Encoders(E: D.Encode.S) = struct
            ; ("src_base64", string x.src_base64)
            ]
            |> append_opt_key "instance_printer" printer_details x.instance_printer
-           |> append_opt_key "hints" Hints_e.t x.hints)
+           |> append_opt_key "hints" Hints_e.t x.hints
+          )
 
     let verify_req_name (x : Request.verify_req_name) =
       obj ([ ("name", string x.name )
            ]
            |> append_opt_key "instance_printer" printer_details x.instance_printer
-           |> append_opt_key "hints" Hints_e.t x.hints)
+           |> append_opt_key "hints" Hints_e.t x.hints
+          )
 
     let instance_req_src (x : Request.instance_req_src) =
       obj ([ ("syntax", src_syntax x.syntax )
            ; ("src_base64", string x.src_base64)
            ]
-           |> append_opt_key "instance_printer" printer_details x.instance_printer)
+           |> append_opt_key "instance_printer" printer_details x.instance_printer
+           |> append_opt_key "hints" Hints_e.t x.hints
+          )
 
     let instance_req_name (x : Request.instance_req_name) =
       obj ([ ("name", string x.name )
            ]
-           |> append_opt_key "instance_printer" printer_details x.instance_printer)
+           |> append_opt_key "instance_printer" printer_details x.instance_printer
+           |> append_opt_key "hints" Hints_e.t x.hints
+          )
 
     let eval_req_src (x : Request.eval_req_src) =
       obj ([ ("syntax", src_syntax x.syntax)
