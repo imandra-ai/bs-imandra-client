@@ -5,7 +5,7 @@ let running_imandra_server_info = ref None
 
 module Api = Imandra_client.Api
 
-let syntax = Api.OCaml
+let syntax = Api.Iml
 
 let () =
   beforeAllPromise ~timeout:20000 (fun () ->
